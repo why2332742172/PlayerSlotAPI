@@ -15,7 +15,7 @@ public class PlayerSlotPlugin extends JavaPlugin {
 
 
     @Override
-    public void onLoad(){
+    public void onLoad() {
         instance = this;
     }
 
@@ -25,7 +25,7 @@ public class PlayerSlotPlugin extends JavaPlugin {
         PlayerSlotAPI.init(this);
         //测试命令
         PluginCommand command = getCommand("psapi");
-        if(command != null){
+        if (command != null) {
             command.setExecutor(new CommandHub());
         }
         this.saveDefaultConfig();
@@ -39,7 +39,7 @@ public class PlayerSlotPlugin extends JavaPlugin {
         Bukkit.getConsoleSender().sendMessage("§9==============================================================");
     }
 
-    private void printInfo(){
+    private void printInfo() {
         Bukkit.getConsoleSender().sendMessage("§9==============================================================");
         Bukkit.getConsoleSender().sendMessage("§9Enabling PlayerSlotApi");
         Bukkit.getConsoleSender().sendMessage("§9==============================================================");

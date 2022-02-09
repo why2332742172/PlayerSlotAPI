@@ -1,4 +1,4 @@
-package com.github.playerslotapi.hooks;
+package com.github.playerslotapi.hook;
 
 
 import eos.moe.dragoncore.DragonCore;
@@ -37,13 +37,7 @@ public class DragonCoreHook {
         return result[0];
     }
 
-    public void setItemToSlot(String identifier, Player player, ItemStack toBePuttedItem, Boolean forceReplace) {
-        ItemStack itemInSlot = getItemFromSlot(identifier, player);
-
-        if (itemInSlot != null && itemInSlot.getType() != Material.AIR && !forceReplace) {
-            player.sendMessage("玩家" + player.getName() + "在槽位" + identifier + "已经有物品了!无法非强制替换!");
-            return;
-        }
+    public void setItemToSlot(String identifier, Player player, ItemStack toBePuttedItem) {
         instance.getDB().setData(player, identifier, toBePuttedItem, new IDataBase.Callback<ItemStack>() {
             @Override
             public void onResult(ItemStack itemStack) {

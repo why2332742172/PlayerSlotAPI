@@ -21,9 +21,9 @@ public class CommandHub implements CommandExecutor {
             //psapi 玩家id 槽位identifier
             //输出该槽位的物品信息
             ItemStack a = PlayerSlotAPI.dragonCoreHook.getItemFromSlot(args[1], Bukkit.getPlayer(args[0]));
-            if(a == null || a.getType() == Material.AIR){
+            if (a == null || a.getType() == Material.AIR) {
                 senderPlayer.sendMessage("null");
-            }else {
+            } else {
                 senderPlayer.sendMessage(a.toString());
             }
 
@@ -31,7 +31,7 @@ public class CommandHub implements CommandExecutor {
         } else if (args.length == 3) {
             //psapi 玩家id identifier true/false(是否为强制?)
             //给该玩家的槽位设置物品
-            PlayerSlotAPI.dragonCoreHook.setItemToSlot(args[1], Bukkit.getPlayer(args[0]), senderPlayer.getItemInHand(), Boolean.parseBoolean(args[2]));
+            PlayerSlotAPI.dragonCoreHook.setItemToSlot(args[1], Bukkit.getPlayer(args[0]), senderPlayer.getItemInHand());
             return true;
         }
 

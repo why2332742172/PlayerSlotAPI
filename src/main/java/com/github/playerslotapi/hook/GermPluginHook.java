@@ -1,8 +1,7 @@
-package com.github.playerslotapi.hooks;
+package com.github.playerslotapi.hook;
 
 import com.germ.germplugin.GermPlugin;
 import com.germ.germplugin.api.GermSlotAPI;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -23,13 +22,7 @@ public class GermPluginHook {
         return GermSlotAPI.getGermSlotItemStacks(player, list).get(0);
     }
 
-    public void setItemToSlot(String identifier, Player player, ItemStack toBePuttedItem, Boolean forceReplace) {
-        ItemStack itemInSlot = getItemFromSlot(identifier, player);
-
-        if (itemInSlot != null && itemInSlot.getType() != Material.AIR && !forceReplace) {
-            player.sendMessage("玩家" + player.getName() + "在槽位" + identifier + "已经有物品了!无法非强制替换!");
-            return;
-        }
+    public void setItemToSlot(String identifier, Player player, ItemStack toBePuttedItem) {
         GermSlotAPI.saveItemStackToIdentity(player, identifier, toBePuttedItem);
     }
 }
