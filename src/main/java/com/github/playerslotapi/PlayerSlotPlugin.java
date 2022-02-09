@@ -22,6 +22,7 @@ public class PlayerSlotPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         printInfo();
+        PlayerSlotAPI.init(this);
         //测试命令
         PluginCommand command = getCommand("psapi");
         if(command != null){

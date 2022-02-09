@@ -3,10 +3,12 @@ package com.github.playerslotapi;
 import com.github.playerslotapi.hooks.DragonCoreHook;
 import com.github.playerslotapi.hooks.GermPluginHook;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 
 public class PlayerSlotAPI {
 
     private static final PlayerSlotAPI INSTANCE;
+    private static Plugin PLUGIN = null;
 
     static {
         INSTANCE = new PlayerSlotAPI();
@@ -16,17 +18,18 @@ public class PlayerSlotAPI {
         return INSTANCE;
     }
 
-    private PlayerSlotAPI(){
-        loadHook();
+    public static Plugin getPlugin(){
+        return PLUGIN;
     }
 
+    private PlayerSlotAPI(){}
 
     //依赖
     public static GermPluginHook germPluginHook = null;
     public static DragonCoreHook dragonCoreHook = null;
 
-
-    private void loadHook(){
+    public static void init(Plugin plugin){
+        PLUGIN = plugin;
         if (Bukkit.getPluginManager().getPlugin("GermPlugin") != null){
             //萌芽
             germPluginHook = new GermPluginHook();
