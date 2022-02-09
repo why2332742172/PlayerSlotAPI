@@ -19,7 +19,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 public class PlayerCache {
-
+    private static boolean isAir(ItemStack item) {
+        return item == null || item.getType().equals(Material.AIR);
+    }
     private static final ItemStack AIR = new ItemStack(Material.AIR);
 
     /**
@@ -119,16 +121,20 @@ public class PlayerCache {
      */
     public void updateCachedItem(AbstractSlot slot, ItemStack item) {
         ItemStack old = itemCache.get(slot);
-        if (item.equals(old)) {
+        if(item == null){
+            item = AIR.clone();
+        }
+        if (isAir(old)&&isAir(item)||old.equals(item)) {
             return;
         }
+        final ItemStack itemCopy = item.clone();
         Bukkit.getScheduler().runTaskAsynchronously(PlayerSlotAPI.getPlugin(), () -> {
-            AsyncSlotUpdateEvent event = new AsyncSlotUpdateEvent(player, slot, old, item);
+            AsyncSlotUpdateEvent event = new AsyncSlotUpdateEvent(player, slot, old, itemCopy);
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled()) {
                 return;
             }
-            itemCache.put(slot, event.getNewItem());
+            itemCache.put(slot, event.getNewItem().clone());
             // 当信息读取器不为空时, 从装备上读取信息并丢入Map中
             Map<Class<?>, Object> data = dataCache.get(slot);
             for (Map.Entry<Class<?>, Function<ItemStack, ?>> entry : DATA_READER.entrySet()) {

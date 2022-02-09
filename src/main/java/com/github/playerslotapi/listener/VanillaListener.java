@@ -54,7 +54,6 @@ public class VanillaListener {
         Events.subscribe(PlayerItemHeldEvent.class, VanillaListener::onPlayerItemHeld);
         Events.subscribe(PlayerSwapHandItemsEvent.class, VanillaListener::onPlayerSwapItem);
         Events.subscribe(PlayerPickupItemEvent.class, VanillaListener::onPlayerPickupItem);
-        Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem);
         Events.subscribe(PlayerItemBreakEvent.class, EventPriority.MONITOR, false, VanillaListener::onPlayerItemBreak);
         try {
             Events.subscribe(BlockDispenseArmorEvent.class, event -> {
@@ -297,18 +296,15 @@ public class VanillaListener {
 
     private static void onHatCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
+        if (isAir(player.getInventory().getItemInMainHand())) {
+            return;
+        }
+        CheckEquipEvent checkHand = new CheckEquipEvent(player, CheckTrigger.COMMAND_HAT, VanillaSlot.MAINHAND);
+        Bukkit.getServer().getPluginManager().callEvent(checkHand);
         if (!event.getMessage().toLowerCase().startsWith("/hat")) {
-            if (player.isOp()) {
-                CheckEquipEvent checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.COMMAND, VanillaSlot.MAINHAND);
-                Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-                // 无论如何也不取消普通Command事件
-            }
             return;
         }
-        if (!isAir(player.getInventory().getItemInMainHand())) {
-            return;
-        }
-        CheckEquipEvent checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.COMMAND_HAT, VanillaSlot.HELMET);
-        Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
+        CheckEquipEvent checkHat = new CheckEquipEvent(player, CheckTrigger.COMMAND_HAT, VanillaSlot.HELMET);
+        Bukkit.getServer().getPluginManager().callEvent(checkHat);
     }
 }

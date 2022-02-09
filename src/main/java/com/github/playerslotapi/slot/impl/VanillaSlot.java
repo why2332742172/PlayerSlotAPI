@@ -52,7 +52,7 @@ public class VanillaSlot extends AbstractSlot {
         return ID_MAP.get(id);
     }
 
-    public static boolean isAir(ItemStack item) {
+    private static boolean isAir(ItemStack item) {
         return item == null || item.getType().equals(Material.AIR);
     }
 
