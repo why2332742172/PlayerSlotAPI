@@ -1,4 +1,4 @@
-package hooks;
+package com.github.playerslotapi.hooks;
 
 import com.germ.germplugin.api.GermKeyAPI;
 
