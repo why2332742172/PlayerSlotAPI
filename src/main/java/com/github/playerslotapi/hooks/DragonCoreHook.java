@@ -11,7 +11,7 @@ import org.bukkit.inventory.ItemStack;
 
 public class DragonCoreHook {
 
-    public DragonCore instance;
+    private final DragonCore instance;
 
     public DragonCoreHook() {
         this.instance = DragonCore.getInstance();
