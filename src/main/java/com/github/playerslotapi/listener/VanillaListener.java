@@ -3,14 +3,12 @@ package com.github.playerslotapi.listener;
 
 import com.github.playerslotapi.event.CheckEquipEvent;
 import com.github.playerslotapi.event.CheckEquipEvent.CheckTrigger;
-import com.github.playerslotapi.slot.AbstractSlot;
 import com.github.playerslotapi.slot.impl.VanillaSlot;
 import com.github.playerslotapi.util.Events;
 import com.google.common.collect.Sets;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.block.Action;
@@ -21,15 +19,12 @@ import org.bukkit.event.player.*;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import java.util.Set;
 
 
 public class VanillaListener {
 
-    private static final List<Events<? extends Event>> EVENTS = new ArrayList<>();
-    private static final HashSet<String> BLOCKED_MATERIALS = Sets.newHashSet(
+    private static final Set<String> BLOCKED_MATERIALS = Sets.newHashSet(
             "FURNACE", "CHEST", "TRAPPED_CHEST", "BEACON", "DISPENSER", "DROPPER", "HOPPER",
             "WORKBENCH", "ENCHANTMENT_TABLE", "ENDER_CHEST", "ANVIL", "BED_BLOCK", "FENCE_GATE",
             "SPRUCE_FENCE_GATE", "BIRCH_FENCE_GATE", "ACACIA_FENCE_GATE", "JUNGLE_FENCE_GATE",
@@ -50,36 +45,30 @@ public class VanillaListener {
     );
 
     @SuppressWarnings("deprecation")
-    public static void enable() {
-        EVENTS.add(Events.subscribe(PlayerCommandPreprocessEvent.class, VanillaListener::onHatCommand));
-        EVENTS.add(Events.subscribe(InventoryClickEvent.class, VanillaListener::onInventoryClick));
-        EVENTS.add(Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem));
-        EVENTS.add(Events.subscribe(InventoryDragEvent.class, VanillaListener::onInventoryDrag));
-        EVENTS.add(Events.subscribe(PlayerInteractEvent.class, VanillaListener::onPlayerInteract));
-        EVENTS.add(Events.subscribe(PlayerItemHeldEvent.class, VanillaListener::onPlayerItemHeld));
-        EVENTS.add(Events.subscribe(PlayerSwapHandItemsEvent.class, VanillaListener::onPlayerSwapItem));
-        EVENTS.add(Events.subscribe(PlayerPickupItemEvent.class, VanillaListener::onPlayerPickupItem));
-        EVENTS.add(Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem));
-        EVENTS.add(Events.subscribe(PlayerItemBreakEvent.class, EventPriority.MONITOR, false, VanillaListener::onPlayerItemBreak));
+    public static void registerEvents() {
+        Events.subscribe(PlayerCommandPreprocessEvent.class, VanillaListener::onHatCommand);
+        Events.subscribe(InventoryClickEvent.class, VanillaListener::onInventoryClick);
+        Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem);
+        Events.subscribe(InventoryDragEvent.class, VanillaListener::onInventoryDrag);
+        Events.subscribe(PlayerInteractEvent.class, VanillaListener::onPlayerInteract);
+        Events.subscribe(PlayerItemHeldEvent.class, VanillaListener::onPlayerItemHeld);
+        Events.subscribe(PlayerSwapHandItemsEvent.class, VanillaListener::onPlayerSwapItem);
+        Events.subscribe(PlayerPickupItemEvent.class, VanillaListener::onPlayerPickupItem);
+        Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem);
+        Events.subscribe(PlayerItemBreakEvent.class, EventPriority.MONITOR, false, VanillaListener::onPlayerItemBreak);
         try {
-            EVENTS.add(Events.subscribe(BlockDispenseArmorEvent.class,event->{
+            Events.subscribe(BlockDispenseArmorEvent.class, event -> {
                 VanillaSlot type = VanillaSlot.matchType(event.getItem());
                 if (type != null && event.getTargetEntity() instanceof Player) {
                     Player p = (Player) event.getTargetEntity();
                     CheckEquipEvent checkEquipEvent = new CheckEquipEvent(p, CheckEquipEvent.CheckTrigger.DISPENSER, type);
                     Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
                 }
-            }));
-        }catch (Throwable ignored){
+            });
+        } catch (Throwable ignored) {
 
         }
     }
-
-    public static void disable() {
-        EVENTS.forEach(Events::unregister);
-        EVENTS.clear();
-    }
-
 
     private static boolean isAir(ItemStack item) {
         return item == null || item.getType().equals(Material.AIR);

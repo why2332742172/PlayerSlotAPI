@@ -1,5 +1,6 @@
 package com.github.playerslotapi.core;
 
+import com.github.playerslotapi.PlayerSlotAPI;
 import com.github.playerslotapi.event.AsyncSlotUpdateEvent;
 import com.github.playerslotapi.listener.VanillaListener;
 import com.github.playerslotapi.slot.AbstractSlot;
@@ -66,13 +67,23 @@ public class PlayerCache {
      * 注册原版槽位
      */
     public static void registerVanilla() {
-        REGISTERED_SLOTS.add(VanillaSlot.MAINHAND);
-        REGISTERED_SLOTS.add(VanillaSlot.OFFHAND);
-        REGISTERED_SLOTS.add(VanillaSlot.HELMET);
-        REGISTERED_SLOTS.add(VanillaSlot.CHESTPLATE);
-        REGISTERED_SLOTS.add(VanillaSlot.LEGGINGS);
-        REGISTERED_SLOTS.add(VanillaSlot.BOOTS);
-        VanillaListener.enable();
+        registerSlot(VanillaSlot.MAINHAND);
+        registerSlot(VanillaSlot.OFFHAND);
+        registerSlot(VanillaSlot.HELMET);
+        registerSlot(VanillaSlot.CHESTPLATE);
+        registerSlot(VanillaSlot.LEGGINGS);
+        registerSlot(VanillaSlot.BOOTS);
+        VanillaListener.registerEvents();
+    }
+
+    /**
+     * 获取所有已经注册的槽位
+     *
+     * @return
+     */
+
+    public static Set<AbstractSlot> getRegisteredSlots() {
+        return REGISTERED_SLOTS;
     }
 
     /**
@@ -101,7 +112,7 @@ public class PlayerCache {
 
     /**
      * 尝试更新槽位物品
-     * 注意这个方法会被频繁异步调用
+     * 注意这个方法会被频繁调用
      *
      * @param slot 槽位类型
      * @param item 槽位物品
@@ -111,24 +122,29 @@ public class PlayerCache {
         if (item.equals(old)) {
             return;
         }
-        AsyncSlotUpdateEvent event = new AsyncSlotUpdateEvent(player, slot, old, item);
-        Bukkit.getPluginManager().callEvent(event);
-        if (event.isCancelled()) {
-            return;
-        }
-        itemCache.put(slot, event.getNewItem());
-        // 当信息读取器不为空时, 从装备上读取信息并丢入Map中
-        Map<Class<?>, Object> data = dataCache.get(slot);
-        for (Map.Entry<Class<?>, Function<ItemStack, ?>> entry : DATA_READER.entrySet()) {
-            Object info = entry.getValue().apply(event.getNewItem());
-            if (info != null) {
-                data.put(entry.getKey(), info);
-            } else {
-                data.remove(entry.getKey());
+        Bukkit.getScheduler().runTaskAsynchronously(PlayerSlotAPI.getPlugin(), () -> {
+            AsyncSlotUpdateEvent event = new AsyncSlotUpdateEvent(player, slot, old, item);
+            Bukkit.getPluginManager().callEvent(event);
+            if (event.isCancelled()) {
+                return;
             }
-        }
+            itemCache.put(slot, event.getNewItem());
+            // 当信息读取器不为空时, 从装备上读取信息并丢入Map中
+            Map<Class<?>, Object> data = dataCache.get(slot);
+            for (Map.Entry<Class<?>, Function<ItemStack, ?>> entry : DATA_READER.entrySet()) {
+                Object info = entry.getValue().apply(event.getNewItem());
+                if (info != null) {
+                    data.put(entry.getKey(), info);
+                } else {
+                    data.remove(entry.getKey());
+                }
+            }
+        });
     }
 
+    /**
+     * 更新所有槽位
+     */
     public void updateAll() {
         for (AbstractSlot slot : REGISTERED_SLOTS) {
             updateCachedItem(slot, slot.get(player));
