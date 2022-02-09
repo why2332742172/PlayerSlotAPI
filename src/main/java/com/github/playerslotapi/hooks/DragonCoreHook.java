@@ -39,7 +39,7 @@ public class DragonCoreHook {
 
     public void setItemToSlot(String identifier, Player player, ItemStack toBePuttedItem, Boolean forceReplace) {
         ItemStack itemInSlot = getItemFromSlot(identifier, player);
-        player.sendMessage(forceReplace.toString());
+
         if (itemInSlot != null && itemInSlot.getType() != Material.AIR && !forceReplace) {
             player.sendMessage("玩家" + player.getName() + "在槽位" + identifier + "已经有物品了!无法非强制替换!");
             return;
