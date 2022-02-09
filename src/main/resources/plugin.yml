@@ -1,5 +1,5 @@
 name: PlayerSlotApi
-main: com.github.playerslotapi.PlayerSlotApi
+main: com.github.playerslotapi.PlayerSlotPlugin
 author: YiMiner,StrawberryYu
 version: ${project.version}
 softdepend:
