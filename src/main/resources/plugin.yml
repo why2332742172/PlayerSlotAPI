@@ -1,4 +1,4 @@
-name: PlayerSlotApi
+name: PlayerSlotAPI
 main: com.github.playerslotapi.PlayerSlotPlugin
 author: YiMiner,StrawberryYu
 version: ${project.version}
