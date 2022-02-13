@@ -1,11 +1,11 @@
 package com.github.playerslotapi.listener;
 
 
-import com.github.playerslotapi.event.CheckEquipEvent;
-import com.github.playerslotapi.event.CheckEquipEvent.CheckTrigger;
-import com.github.playerslotapi.slot.impl.VanillaSlot;
+import com.github.playerslotapi.event.SlotUpdateEvent;
+import com.github.playerslotapi.event.UpdateTrigger;
+import com.github.playerslotapi.slot.PlayerSlot;
+import com.github.playerslotapi.slot.impl.VanillaEquipSlot;
 import com.github.playerslotapi.util.Events;
-import com.google.common.collect.Sets;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -18,13 +18,18 @@ import org.bukkit.event.inventory.InventoryType.SlotType;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
+import java.util.Map;
 import java.util.Set;
+
+import static com.github.playerslotapi.util.Util.isAir;
+import static com.github.playerslotapi.util.Util.newHashSet;
 
 
 public class VanillaListener {
 
-    private static final Set<String> BLOCKED_MATERIALS = Sets.newHashSet(
+    private static final Set<String> BLOCKED_MATERIALS = newHashSet(
             "FURNACE", "CHEST", "TRAPPED_CHEST", "BEACON", "DISPENSER", "DROPPER", "HOPPER",
             "WORKBENCH", "ENCHANTMENT_TABLE", "ENDER_CHEST", "ANVIL", "BED_BLOCK", "FENCE_GATE",
             "SPRUCE_FENCE_GATE", "BIRCH_FENCE_GATE", "ACACIA_FENCE_GATE", "JUNGLE_FENCE_GATE",
@@ -41,8 +46,32 @@ public class VanillaListener {
             "MAGENTA_SHULKER_BOX", "ORANGE_SHULKER_BOX", "PINK_SHULKER_BOX", "PURPLE_SHULKER_BOX",
             "RED_SHULKER_BOX", "SILVER_SHULKER_BOX", "WHITE_SHULKER_BOX", "YELLOW_SHULKER_BOX",
             "DAYLIGHT_DETECTOR_INVERTED", "DAYLIGHT_DETECTOR", "BARREL", "BLAST_FURNACE", "SMOKER",
-            "CARTOGRAPHY_TABLE", "COMPOSTER", "GRINDSTONE", "LECTERN", "LOOM", "STONECUTTER", "BELL"
+            "CARTOGRAPHY_TABLE", "COMPOSTER", "GRINDSTONE", "LECTERN", "LOOM", "STONECUTTER", "BELL",
+            "BEEHIVE"
     );
+
+    /**
+     * 工具函数，用于同时触发槽位预更新和后更新事件
+     *
+     * @param trigger 触发原因
+     * @param player  玩家
+     * @param slot    槽位
+     * @param oldItem 老物品
+     * @param newItem 新物品
+     * @return 返回槽位更新事件
+     */
+    private static boolean callSlotUpdate(UpdateTrigger trigger, Player player, PlayerSlot slot, ItemStack oldItem, ItemStack newItem) {
+        if (oldItem == null) {
+            oldItem = new ItemStack(Material.AIR);
+        }
+        if (oldItem.equals(newItem)) {
+            return true;
+        }
+        SlotUpdateEvent update = new SlotUpdateEvent(trigger, player, slot, oldItem, newItem);
+        Bukkit.getPluginManager().callEvent(update);
+        // 事件已经被取消, 或者不知道将要被更新成什么, 则只触发预更新
+        return !update.isCancelled();
+    }
 
     @SuppressWarnings("deprecation")
     public static void registerEvents() {
@@ -50,18 +79,20 @@ public class VanillaListener {
         Events.subscribe(InventoryClickEvent.class, VanillaListener::onInventoryClick);
         Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem);
         Events.subscribe(InventoryDragEvent.class, VanillaListener::onInventoryDrag);
-        Events.subscribe(PlayerInteractEvent.class, VanillaListener::onPlayerInteract);
         Events.subscribe(PlayerItemHeldEvent.class, VanillaListener::onPlayerItemHeld);
         Events.subscribe(PlayerSwapHandItemsEvent.class, VanillaListener::onPlayerSwapItem);
         Events.subscribe(PlayerPickupItemEvent.class, VanillaListener::onPlayerPickupItem);
+        Events.subscribe(PlayerItemDamageEvent.class, VanillaListener::onPlayerItemDamage);
+        Events.subscribe(PlayerInteractEvent.class, EventPriority.HIGHEST, false, VanillaListener::onPlayerInteract);
         Events.subscribe(PlayerItemBreakEvent.class, EventPriority.MONITOR, false, VanillaListener::onPlayerItemBreak);
         try {
             Events.subscribe(BlockDispenseArmorEvent.class, event -> {
-                VanillaSlot type = VanillaSlot.matchType(event.getItem());
-                if (type != null && event.getTargetEntity() instanceof Player) {
-                    Player p = (Player) event.getTargetEntity();
-                    CheckEquipEvent checkEquipEvent = new CheckEquipEvent(p, CheckEquipEvent.CheckTrigger.DISPENSER, type);
-                    Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
+                VanillaEquipSlot slot = VanillaEquipSlot.matchType(event.getItem());
+                if (slot != null && event.getTargetEntity() instanceof Player) {
+                    Player player = (Player) event.getTargetEntity();
+                    if (!callSlotUpdate(UpdateTrigger.DISPENSER, player, slot, slot.get(player), event.getItem())) {
+                        event.setCancelled(true);
+                    }
                 }
             });
         } catch (Throwable ignored) {
@@ -69,18 +100,21 @@ public class VanillaListener {
         }
     }
 
-    private static boolean isAir(ItemStack item) {
-        return item == null || item.getType().equals(Material.AIR);
-    }
-
+    /**
+     * 检查玩家点击造成的装备和主手副手更新
+     *
+     * @param event GUI点击事件
+     */
     private static void onInventoryClick(final InventoryClickEvent event) {
-        if (event.isCancelled()) {
+        if (event.getAction() == InventoryAction.NOTHING) {
+            // 点击无事发生 直接返回
             return;
         }
-        if (event.getAction() == InventoryAction.NOTHING) {
-            return;// 点击无事发生 直接返回
-        }
         if (!(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
+        if (event.getClickedInventory() == null) {
+            // 点击栏外 直接返回
             return;
         }
         boolean shift = false;
@@ -93,103 +127,223 @@ public class VanillaListener {
         }
         Player player = (Player) event.getWhoClicked();
         // 处理主手变化情况
-        CheckEquipEvent mainEquipEvent = null;
         if (numberkey) {
             // 数字键切换, 来源去向都检查
-            int hotbarID = event.getHotbarButton();
-            int targetID = event.getSlot();
-            if (targetID == player.getInventory().getHeldItemSlot() || hotbarID == player.getInventory().getHeldItemSlot()) {
-                mainEquipEvent = new CheckEquipEvent(player, CheckTrigger.HOTBAR_SWAP, VanillaSlot.MAINHAND);
+            // 数字键可能同时产生主手变化和装备变化 此处只检查主手
+            int hotbarId = event.getHotbarButton();
+            int targetId = event.getSlot();
+            if (hotbarId == player.getInventory().getHeldItemSlot()) {
+                if (!callSlotUpdate(UpdateTrigger.HOTBAR_SWAP, player, VanillaEquipSlot.MAINHAND, player.getInventory().getItem(hotbarId), event.getCurrentItem())) {
+                    event.setCancelled(true);
+                    return;
+                }
+            } else if (targetId == player.getInventory().getHeldItemSlot()) {
+                if (!callSlotUpdate(UpdateTrigger.HOTBAR_SWAP, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), player.getInventory().getItem(hotbarId))) {
+                    event.setCancelled(true);
+                    return;
+                }
             }
         } else {
-            // 点击热键栏且点击位置为主手位 触发检查
-            if (event.getSlotType() == SlotType.QUICKBAR) {
-                if (event.getSlot() == player.getInventory().getHeldItemSlot()) {
-                    mainEquipEvent = new CheckEquipEvent(player, (shift ? CheckTrigger.SHIFT_CLICK : CheckTrigger.PICK_DROP), VanillaSlot.MAINHAND);
+            // 直接点击
+            // shift点击储存区和副手时，有可能直接把装备送进格子里，从而无需检查主手
+            // 直接在这里处理shift左键快捷装备, 如果装备了通知主副手然后短路处理
+            boolean equipped = false;
+            if (shift && event.getClickedInventory().getType() == InventoryType.PLAYER) {
+                VanillaEquipSlot quickEquipSlot = VanillaEquipSlot.matchType(event.getCurrentItem());
+                // 成功装备上的情况
+                if (quickEquipSlot != null && isAir(quickEquipSlot.get(player)) && (event.getSlotType() == SlotType.CONTAINER || event.getSlotType() == SlotType.QUICKBAR)) {
+                    if (!callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, quickEquipSlot, null, event.getCurrentItem())) {
+                        event.setCancelled(true);
+                        return;
+                    }
+                    // 通知副手 准备短路处理
+                    if (event.getRawSlot() == 45 && !callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.OFFHAND, event.getCurrentItem(), new ItemStack(Material.AIR))) {
+                        event.setCancelled(true);
+                        return;
+                    }
+                    equipped = true;
                 }
-            } else if (shift) {
-                // 点击非热键栏但按了SHIFT 也触发检查
-                mainEquipEvent = new CheckEquipEvent(player, CheckTrigger.SHIFT_CLICK, VanillaSlot.MAINHAND);
             }
-        }
-        if (mainEquipEvent != null) {
-            Bukkit.getPluginManager().callEvent(mainEquipEvent);
+            if (event.getSlotType() == SlotType.QUICKBAR && (event.getRawSlot() != 45 || event.getClickedInventory().getType() != InventoryType.PLAYER)) {
+                // 点击热键栏且不是副手位置 检查
+                if (event.getSlot() == player.getInventory().getHeldItemSlot()) {
+                    // 如果点击的是主手位置
+                    // 如果按了shift, 物品栏里面又没有相似物品或者空位, 返回
+                    if (shift) {
+                        if (!equipped) {
+                            ItemStack mainHandItem = player.getInventory().getItemInMainHand();
+                            int left = mainHandItem.getAmount();
+                            for (int i = 9; i < 36; i++) {
+                                ItemStack possible = player.getInventory().getItem(i);
+                                if (isAir(possible)) {
+                                    left = 0;
+                                    break;
+                                }
+                                if (possible.isSimilar(mainHandItem) && possible.getAmount() < possible.getMaxStackSize()) {
+                                    left -= (possible.getMaxStackSize() - possible.getAmount());
+                                    if (left <= 0) {
+                                        left = 0;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (left == mainHandItem.getAmount()) {
+                                return;
+                            }
+                            ItemStack newItem;
+                            if (left == 0) {
+                                newItem = new ItemStack(Material.AIR);
+                            } else {
+                                newItem = mainHandItem.clone();
+                                newItem.setAmount(left);
+                            }
+                            if (!callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), newItem)) {
+                                event.setCancelled(true);
+                            }
+                        } else if (!callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), new ItemStack(Material.AIR))) {
+                            event.setCancelled(true);
+                        }
+                    } else if (!callSlotUpdate(UpdateTrigger.PICK_DROP, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), event.getCursor())) {
+                        event.setCancelled(true);
+                    }
+                    return;
+                }
+            } else if (shift && !equipped) {
+                // 检查点击热键栏之外的位置是否把物品送到了主手
+                // 之前检查过快捷装备, 如果快捷装备成功此处就不检查了
+                ItemStack mainHandItem = player.getInventory().getItemInMainHand();
+                ItemStack item = event.getCurrentItem();
+                // 如果主手物品为空或和点击物品相似 则进行检查
+                if (isAir(mainHandItem) || mainHandItem.isSimilar(item) && mainHandItem.getMaxStackSize() > mainHandItem.getAmount()) {
+                    PlayerInventory inventory = player.getInventory();
+                    int mainHandIndex = inventory.getHeldItemSlot();
+                    int amount = item.getAmount();
+                    // 如果是副手点击则先填充Container的东西
+                    boolean abort = false;
+                    if (event.getClickedInventory().getType() == InventoryType.PLAYER && event.getRawSlot() == 45) {
+                        for (int i = 9; i < 36; i++) {
+                            ItemStack possible = inventory.getItem(i);
+                            if (item.isSimilar(possible) && possible.getMaxStackSize() > possible.getAmount()) {
+                                amount -= (possible.getMaxStackSize() - possible.getAmount());
+                                if (amount <= 0) {
+                                    abort = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    // 填充主手前面的快捷栏
+                    if (!abort) {
+                        for (int i = 0; i < mainHandIndex; i++) {
+                            ItemStack possible = inventory.getItem(i);
+                            if (item.isSimilar(possible) && possible.getMaxStackSize() > possible.getAmount()) {
+                                amount -= (possible.getMaxStackSize() - possible.getAmount());
+                                if (amount <= 0) {
+                                    abort = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    // 如果主手是空气
+                    if (!abort && isAir(mainHandItem)) {
+                        // 接着填充快捷栏
+                        for (int i = mainHandIndex + 1; i < 9; i++) {
+                            ItemStack possible = inventory.getItem(i);
+                            if (item.isSimilar(possible) && possible.getMaxStackSize() > possible.getAmount()) {
+                                amount -= (possible.getMaxStackSize() - possible.getAmount());
+                                if (amount <= 0) {
+                                    abort = true;
+                                    break;
+                                }
+                            }
+                        }
+                        // 如果点击了副手槽位且储存区有空气 放弃
+                        if (!abort && event.getClickedInventory().getType() == InventoryType.PLAYER && event.getRawSlot() == 45) {
+                            for (int i = 9; i < 36; i++) {
+                                if (isAir(inventory.getItem(i))) {
+                                    abort = true;
+                                    break;
+                                }
+                            }
+                        }
+                        // 如果主手前面有空气 放弃
+                        if (!abort) {
+                            for (int i = 0; i < mainHandIndex; i++) {
+                                if (isAir(inventory.getItem(i))) {
+                                    abort = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    // 如果没有放弃则触发事件
+                    if (!abort) {
+                        ItemStack newItem = item.clone();
+                        newItem.setAmount(Math.min((isAir(mainHandItem)?0:mainHandItem.getAmount())+amount,mainHandItem.getMaxStackSize()));
+                        if (!callSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, mainHandItem, newItem)) {
+                            event.setCancelled(true);
+                            return;
+                        }
+                    }
+                }
+            }
+            // 如果是shift左键快捷装备, 此时已经检查完毕
+            // 短路处理
+            if (equipped) {
+                // 延迟后更新事件在此处提交Scheduler
+                return;
+            }
         }
         // 主手处理完毕 现在处理副手和四个装备格子
         // 这五个格子只会在PlayerInventory中发生改变
-        if (event.getSlotType() != SlotType.ARMOR && event.getSlotType() != SlotType.QUICKBAR && event.getSlotType() != SlotType.CONTAINER) {
+        if (event.getClickedInventory().getType() != InventoryType.PLAYER) {
             return;
         }
-        if (event.getClickedInventory() != null && !event.getClickedInventory().getType().equals(InventoryType.PLAYER) && !event.getClickedInventory().getType().equals(InventoryType.CRAFTING)) {
+        // 快速穿装备已经被检查了。所以只剩下直接穿脱和shift脱, 不用检查其它格子
+        VanillaEquipSlot slot = VanillaEquipSlot.getById(event.getRawSlot());
+        if (slot == null) {
             return;
         }
-        if (!event.getInventory().getType().equals(InventoryType.CRAFTING) && !event.getInventory().getType().equals(InventoryType.PLAYER)) {
-            return;
-        }
-        VanillaSlot quickEquipSlotType = VanillaSlot.matchType(shift ? event.getCurrentItem() : event.getCursor());
-        CheckEquipEvent armorEquipEvent = null;
+        boolean result;
         if (shift) {
-            // shift点击
-            ItemStack equipItem = event.getCurrentItem();
-            if (isAir(equipItem)) {
+            // shift点击快速脱
+            // 如果物品栏没空位就不用检查了
+            if (player.getInventory().firstEmpty() == -1) {
                 return;
             }
-            int slot = event.getRawSlot();
-            if (slot < 9 || slot == 45) {
-                if (slot >= 5) {
-                    // 点击装备区, 卸下装备
-                    VanillaSlot slotType = VanillaSlot.getById(slot);
-                    armorEquipEvent = new CheckEquipEvent(player, CheckTrigger.SHIFT_CLICK, slotType);
-                }
-            } else {
-                // 点击储存区和热键栏
-                if (quickEquipSlotType != null && isAir(quickEquipSlotType.get(player))) {
-                    // 成功快捷穿上装备
-                    armorEquipEvent = new CheckEquipEvent(player, CheckTrigger.SHIFT_CLICK, quickEquipSlotType);
-                }
-            }
-            if (armorEquipEvent != null) {
-                Bukkit.getServer().getPluginManager().callEvent(armorEquipEvent);
-            }
+            result = callSlotUpdate(UpdateTrigger.SHIFT_CLICK,
+                    player, slot, event.getCurrentItem(), new ItemStack(Material.AIR));
+            // 点击其它位置的shift已经被检查过了 直接省略
         } else {
-            ItemStack newArmorPiece = event.getCursor();
-            ItemStack oldArmorPiece = event.getCurrentItem();
-            if (event.getRawSlot() == VanillaSlot.OFFHAND.getId()) {
-                quickEquipSlotType = VanillaSlot.OFFHAND;
-            } else {
-                if (numberkey) {
-                    int hotbarID = event.getHotbarButton();
-                    ItemStack hotbarItem = event.getClickedInventory().getItem(hotbarID);
-                    if (!isAir(hotbarItem)) {// Equipping
-                        quickEquipSlotType = VanillaSlot.matchType(hotbarItem);
-                    } else {// Unequipping
-                        quickEquipSlotType = VanillaSlot.matchType(!isAir(event.getCurrentItem()) ? event.getCurrentItem() : event.getCursor());
-                    }
-                } else {
-                    if (isAir(newArmorPiece) && !isAir(oldArmorPiece)) {
-                        quickEquipSlotType = VanillaSlot.matchType(oldArmorPiece);
-                    } else {
-                        quickEquipSlotType = VanillaSlot.matchType(newArmorPiece);
-                    }
-                }
-                if (quickEquipSlotType != VanillaSlot.getById(event.getRawSlot())) {
-                    quickEquipSlotType = null;
+            // 取得新物品
+            ItemStack newItem = numberkey ? event.getClickedInventory().getItem(event.getHotbarButton()) : event.getCursor();
+            // 如果槽位不是副手, 那么交换需要检查是否放的进去
+            if (slot != VanillaEquipSlot.OFFHAND) {
+                // 空气肯定能放进去
+                if (newItem == null) {
+                    newItem = new ItemStack(Material.AIR);
+                } else if (newItem.getType() != Material.AIR && !slot.equals(VanillaEquipSlot.matchType(newItem))) {
+                    return;
                 }
             }
-            if (quickEquipSlotType != null) {
-                CheckTrigger trigger = CheckTrigger.PICK_DROP;
-                if (event.getAction().equals(InventoryAction.HOTBAR_SWAP) || numberkey) {
-                    trigger = CheckTrigger.HOTBAR_SWAP;
-                }
-                armorEquipEvent = new CheckEquipEvent(player, trigger, quickEquipSlotType);
-                Bukkit.getServer().getPluginManager().callEvent(armorEquipEvent);
-            }
+            result = callSlotUpdate(event.getAction().equals(InventoryAction.HOTBAR_SWAP) || numberkey ? UpdateTrigger.HOTBAR_SWAP : UpdateTrigger.PICK_DROP,
+                    player, slot, event.getCurrentItem(), newItem);
+        }
+        if (!result) {
+            event.setCancelled(true);
         }
     }
 
-    // 这个事件处理器会强制进行主或副手检查
+    /**
+     * 检查玩家右键导致的快速装备穿戴和主手副手更新
+     *
+     * @param event 玩家交互事件
+     */
     private static void onPlayerInteract(PlayerInteractEvent event) {
-        if (event.useItemInHand().equals(Result.DENY)) {
+        // 如果手中物品为空或者无法使用, 无需继续检查
+        ItemStack current = event.getItem();
+        if (isAir(current) || event.useItemInHand().equals(Result.DENY)) {
             return;
         }
         if (event.getAction() == Action.PHYSICAL) {
@@ -197,114 +351,278 @@ public class VanillaListener {
         }
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Player player = event.getPlayer();
-            if (!event.useInteractedBlock().equals(Result.DENY)) {
-                if (event.getClickedBlock() != null && event.getAction() == Action.RIGHT_CLICK_BLOCK && !player.isSneaking()) {// Having both of these checks is useless, might as well do it though.
-                    // Some blocks have actions when you right click them which stops the client from equipping the armor in hand.
-                    String name = event.getClickedBlock().getType().toString().toUpperCase();
-                    if (BLOCKED_MATERIALS.contains(name)) {
-                        return;
-                    }
+            // 如果可以与方块交互
+            if (!event.useInteractedBlock().equals(Result.DENY) && event.getClickedBlock() != null && event.getAction() == Action.RIGHT_CLICK_BLOCK && !player.isSneaking()) {// Having both of these checks is useless, might as well do it though.
+                // 有些方块右键时候打开GUI
+                // 这时候啥也不会触发
+                String name = event.getClickedBlock().getType().toString().toUpperCase();
+                if (BLOCKED_MATERIALS.contains(name)) {
+                    return;
                 }
             }
-            CheckEquipEvent checkEquipEvent;
-            VanillaSlot newVanillaSlot = VanillaSlot.matchType(event.getItem());
-            if (newVanillaSlot != null && newVanillaSlot != VanillaSlot.OFFHAND && isAir(newVanillaSlot.get(player))) {
-                checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.HOTBAR, VanillaSlot.matchType(event.getItem()));
-                Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
+            final VanillaEquipSlot handSlot = event.getHand() == EquipmentSlot.HAND ? VanillaEquipSlot.MAINHAND : VanillaEquipSlot.OFFHAND;
+            VanillaEquipSlot quickEquipSlot = VanillaEquipSlot.matchType(event.getItem());
+            if (quickEquipSlot != null && quickEquipSlot != VanillaEquipSlot.OFFHAND && isAir(quickEquipSlot.get(player))) {
+                // 如果成功快速装备, 则顺便把主副手也给通知了, 然后短路处理
+                boolean equipResult = callSlotUpdate(UpdateTrigger.HOTBAR, player, quickEquipSlot, null, current);
+                boolean handResult = callSlotUpdate(UpdateTrigger.USE, player, handSlot, current, new ItemStack(Material.AIR));
+                if (!equipResult || !handResult) {
+                    event.setCancelled(true);
+                }
+                return;
             }
+            // 如果触发了使用
             // 检查触发事件的手
-            if (event.getHand() == EquipmentSlot.HAND) {
-                checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.USE, VanillaSlot.MAINHAND);
-            } else {
-                checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.USE, VanillaSlot.OFFHAND);
+            if (!callSlotUpdate(UpdateTrigger.USE, player, handSlot, current, null)) {
+                event.setCancelled(true);
             }
-            Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
         }
     }
 
-    // 这个事件处理器会强制进行主副手检查
+    /**
+     * 检查拖曳事件造成的原版装备格子更新
+     *
+     * @param event 装备格子更新事件
+     */
     private static void onInventoryDrag(InventoryDragEvent event) {
-        VanillaSlot type = VanillaSlot.matchType(event.getOldCursor());
         if (event.getRawSlots().isEmpty()) {
-            return;// Idk if this will ever happen
-        }
-        Player player = (Player) event.getWhoClicked();
-        CheckEquipEvent checkEquipEvent;
-        if (type != null && type != VanillaSlot.OFFHAND && type.getId() == event.getRawSlots().stream().findFirst().orElse(0)) {
-            checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.DRAG, type);
-            Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-        }
-        // 如果拖曳的格子包含主副手 检查之
-        if (event.getRawSlots().contains(player.getInventory().getHeldItemSlot())) {
-            checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.DRAG, VanillaSlot.MAINHAND);
-            Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-        }
-        if (event.getRawSlots().contains(45)) {
-            checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.DRAG, VanillaSlot.OFFHAND);
-            Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-        }
-    }
-
-    // 这个事件处理器会强制进行主副手检查
-    private static void onPlayerItemBreak(PlayerItemBreakEvent event) {
-        VanillaSlot type = VanillaSlot.matchType(event.getBrokenItem());
-        Player player = event.getPlayer();
-        CheckEquipEvent checkEquipEvent;
-        if (type != null && type != VanillaSlot.OFFHAND) {
-            checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.BROKE, type);
-            Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-        }
-        checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.BROKE, VanillaSlot.MAINHAND);
-        Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-        checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.BROKE, VanillaSlot.OFFHAND);
-        Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-    }
-
-    private static void onPlayerSwapItem(PlayerSwapHandItemsEvent event) {
-        Player player = event.getPlayer();
-        CheckEquipEvent checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.SWAP, VanillaSlot.MAINHAND);
-        Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-        checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.SWAP, VanillaSlot.OFFHAND);
-        Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-    }
-
-    private static void onPlayerItemHeld(PlayerItemHeldEvent event) {
-        Player player = event.getPlayer();
-        CheckEquipEvent checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.HELD, VanillaSlot.MAINHAND);
-        Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
-    }
-
-    private static void onPlayerDropItem(PlayerDropItemEvent event) {
-        Player player = event.getPlayer();
-        if (!isAir(player.getInventory().getItemInMainHand())) {
             return;
         }
-        CheckEquipEvent checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.DROP, VanillaSlot.MAINHAND);
-        Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
+        Player player = (Player) event.getWhoClicked();
+        Map<Integer, ItemStack> items = event.getNewItems();
+        int mainHandIndex = player.getInventory().getHeldItemSlot();
+        int topSize = event.getView().getTopInventory().getSize();
+        for (Map.Entry<Integer, ItemStack> entry : items.entrySet()) {
+            if (entry.getKey() < topSize) {
+                continue;
+            }
+            if (mainHandIndex == event.getView().convertSlot(entry.getKey())) {
+                if (!callSlotUpdate(UpdateTrigger.DRAG, player, VanillaEquipSlot.MAINHAND, event.getView().getItem(entry.getKey()), entry.getValue())) {
+                    event.setCancelled(true);
+                }
+                return;
+            }
+        }
+        final int[] slots = {5, 6, 7, 8, 45};
+        for (int i : slots) {
+            if (items.containsKey(i)) {
+                VanillaEquipSlot slot = VanillaEquipSlot.getById(i);
+                if (!callSlotUpdate(UpdateTrigger.DRAG, player, slot, slot.get(player), items.get(i))) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+        }
     }
 
-    // MC 1.9x Compatibility
+    /**
+     * 检查装备耐久损失导致的装备更新
+     * 依次匹配四个装备格子和主副手
+     *
+     * @param event 装备耐久变化事件
+     */
+    private static void onPlayerItemDamage(PlayerItemDamageEvent event) {
+        if (event.getDamage() == 0) {
+            return;
+        }
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem();
+        VanillaEquipSlot slot = VanillaEquipSlot.matchType(item);
+        // 如果装备成功匹配到类型, 则肯定是装备或者盾牌, 直接callEvent
+        if (slot != null) {
+            ItemStack newItem = item.clone();
+            newItem.setDurability((short) (item.getDurability() + event.getDamage()));
+            if (!callSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), slot, slot.get(player), newItem)) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+        // 否则检查主手和副手的物品 哪个和当前物品完全一致
+        // 先检查主手 一样就不检查副手了
+        ItemStack main = player.getInventory().getItemInMainHand();
+        if (item.equals(main)) {
+            ItemStack newItem = item.clone();
+            newItem.setDurability((short) (item.getDurability() + event.getDamage()));
+            if (!callSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), VanillaEquipSlot.MAINHAND, main, newItem)) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+        ItemStack off = player.getInventory().getItemInOffHand();
+        if (item.equals(off)) {
+            ItemStack newItem = item.clone();
+            newItem.setDurability((short) (item.getDurability() + event.getDamage()));
+            if (!callSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), VanillaEquipSlot.OFFHAND, off, newItem)) {
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    /**
+     * 检查装备损坏
+     *
+     * @param event 装备损坏事件
+     */
+    private static void onPlayerItemBreak(PlayerItemBreakEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = event.getBrokenItem();
+        ItemStack newItem = new ItemStack(Material.AIR);
+        VanillaEquipSlot slot = VanillaEquipSlot.matchType(item);
+        // 检查是否是已知槽位
+        if (slot != null) {
+            if (!callSlotUpdate(UpdateTrigger.BROKE, player, slot, item, newItem)) {
+                slot.set(player, item);
+            }
+            return;
+        }
+        // 否则检查主手和副手的物品 哪个和当前物品完全一致
+        // 先检查主手 一样就不检查副手了
+        ItemStack main = player.getInventory().getItemInMainHand();
+        if (item.equals(main)) {
+            if (!callSlotUpdate(UpdateTrigger.BROKE,
+                    player, VanillaEquipSlot.MAINHAND, item, newItem)) {
+                player.getInventory().setItemInMainHand(item);
+            }
+            return;
+        }
+        ItemStack off = player.getInventory().getItemInOffHand();
+        if (item.equals(off)) {
+            if (!callSlotUpdate(UpdateTrigger.BROKE,
+                    player, VanillaEquipSlot.OFFHAND, item, newItem)) {
+                player.getInventory().setItemInOffHand(item);
+            }
+        }
+    }
+
+    /**
+     * 检查主副手交换事件
+     * 因为可以短路的地方较多, 所以手工构造事件并触发
+     *
+     * @param event 玩家主副手交换事件
+     */
+    private static void onPlayerSwapItem(PlayerSwapHandItemsEvent event) {
+        Player player = event.getPlayer();
+        ItemStack mainHandItem = event.getMainHandItem();
+        ItemStack offHandItem = event.getOffHandItem();
+        if (mainHandItem == null) {
+            mainHandItem = new ItemStack(Material.AIR);
+        }
+        if (offHandItem == null) {
+            offHandItem = new ItemStack(Material.AIR);
+        }
+        if (!callSlotUpdate(UpdateTrigger.SWAP, player, VanillaEquipSlot.MAINHAND, offHandItem, mainHandItem)
+                || !callSlotUpdate(UpdateTrigger.SWAP, player, VanillaEquipSlot.OFFHAND, mainHandItem, offHandItem)) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * 检查玩家主手更替
+     *
+     * @param event 玩家主手更替事件
+     */
+    private static void onPlayerItemHeld(PlayerItemHeldEvent event) {
+        Player player = event.getPlayer();
+        PlayerInventory inventory = player.getInventory();
+        ItemStack oldItem = inventory.getItem(event.getPreviousSlot());
+        ItemStack newItem = inventory.getItem(event.getNewSlot());
+        if (newItem == null) {
+            newItem = new ItemStack(Material.AIR);
+        }
+        if (!callSlotUpdate(UpdateTrigger.HELD, player, VanillaEquipSlot.MAINHAND, oldItem, newItem)) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * 检查玩家丢弃物品事件
+     *
+     * @param event
+     */
+    private static void onPlayerDropItem(PlayerDropItemEvent event) {
+        Player player = event.getPlayer();
+        // 鼠标有物品时是丢弃鼠标物品, 不触发检查
+        if (!isAir(player.getItemOnCursor())) {
+            return;
+        }
+        ItemStack newItem = player.getInventory().getItemInMainHand();
+        ItemStack droppedItem = event.getItemDrop().getItemStack();
+        ItemStack oldItem;
+        if (isAir(newItem)) {
+            newItem = new ItemStack(Material.AIR);
+            oldItem = droppedItem;
+        } else {
+            oldItem = newItem.clone();
+            oldItem.setAmount(newItem.getAmount() + droppedItem.getAmount());
+        }
+        if (!callSlotUpdate(UpdateTrigger.DROP, player, VanillaEquipSlot.MAINHAND, oldItem, newItem)) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * 检查玩家捡起装备产生的主手更新
+     * 用PlayerPickup是为了1.9x兼容
+     *
+     * @param event 玩家拾取装备事件
+     */
     @SuppressWarnings("deprecation")
     private static void onPlayerPickupItem(PlayerPickupItemEvent event) {
         Player player = event.getPlayer();
-        if (!isAir(player.getInventory().getItemInMainHand())) {
+        PlayerInventory inventory = player.getInventory();
+        ItemStack item = event.getItem().getItemStack();
+        ItemStack mainHand = inventory.getItemInMainHand();
+        // 如果主手有物品
+        if (!isAir(mainHand)) {
+            // 当且仅当相似且可堆叠时触发检查
+            if (mainHand.isSimilar(item) && mainHand.getAmount() < mainHand.getMaxStackSize()) {
+                ItemStack newItem = item.clone();
+                newItem.setAmount(Math.min(mainHand.getAmount() + newItem.getAmount(), newItem.getMaxStackSize()));
+                if (!callSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, mainHand, newItem)) {
+                    event.setCancelled(true);
+                }
+            }
             return;
         }
-        CheckEquipEvent checkEquipEvent = new CheckEquipEvent(player, CheckTrigger.PICKUP, VanillaSlot.MAINHAND);
-        Bukkit.getServer().getPluginManager().callEvent(checkEquipEvent);
+        // 如果主手没有物品
+        // 如果主手之前有空位, 返回
+        for (int i = 0; i < inventory.getHeldItemSlot(); i++) {
+            ItemStack current = inventory.getItem(i);
+            if (isAir(current)) {
+                return;
+            }
+        }
+        // 否则优先给相似槽位放置
+        int amount = item.getAmount();
+        ItemStack[] contents = player.getInventory().getContents();
+        for (ItemStack possible : contents) {
+            if (item.isSimilar(possible)) {
+                amount -= (item.getMaxStackSize() - possible.getAmount());
+                if (amount <= 0) {
+                    return;
+                }
+            }
+        }
+        // 此时主手更新了
+        ItemStack newItem = item.clone();
+        newItem.setAmount(amount);
+        if (!callSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, null, newItem)) {
+            event.setCancelled(true);
+        }
     }
 
     private static void onHatCommand(PlayerCommandPreprocessEvent event) {
+        // 出于兼容性考虑
+        // hat指令将触发头盔的更新
+        // 其它指令则仅仅异步检查主手
         Player player = event.getPlayer();
-        if (isAir(player.getInventory().getItemInMainHand())) {
+        ItemStack mainhand = player.getInventory().getItemInMainHand();
+        if (isAir(mainhand)) {
             return;
         }
-        CheckEquipEvent checkHand = new CheckEquipEvent(player, CheckTrigger.COMMAND_HAT, VanillaSlot.MAINHAND);
-        Bukkit.getServer().getPluginManager().callEvent(checkHand);
-        if (!event.getMessage().toLowerCase().startsWith("/hat")) {
-            return;
+        if (event.getMessage().toLowerCase().startsWith("/hat") && mainhand.getType().isBlock() &&
+                !callSlotUpdate(UpdateTrigger.COMMAND_HAT, player, VanillaEquipSlot.HELMET, player.getInventory().getHelmet(), mainhand)) {
+            event.setCancelled(true);
         }
-        CheckEquipEvent checkHat = new CheckEquipEvent(player, CheckTrigger.COMMAND_HAT, VanillaSlot.HELMET);
-        Bukkit.getServer().getPluginManager().callEvent(checkHat);
     }
 }

@@ -1,30 +1,24 @@
 package com.github.playerslotapi;
 
-import com.github.playerslotapi.core.PlayerCache;
-import com.github.playerslotapi.core.PlayerCacheManager;
+import com.github.playerslotapi.core.PlayerSlotManager;
 import com.github.playerslotapi.hook.DragonCoreHook;
 import com.github.playerslotapi.hook.GermPluginHook;
-import com.github.playerslotapi.slot.AbstractSlot;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
-
-import java.util.function.Function;
 
 public class PlayerSlotAPI {
 
-    /**
-     * 核心管理器
-     */
-    private static final PlayerCacheManager MANAGER;
     // 依赖
     public static GermPluginHook germPluginHook = null;
     public static DragonCoreHook dragonCoreHook = null;
-    private static Plugin PLUGIN = null;
+    public static Plugin PLUGIN = null;
+    /**
+     * 核心管理器
+     */
+    private static PlayerSlotManager PUBLIC_MANAGER;
 
     static {
-        MANAGER = new PlayerCacheManager();
+        PUBLIC_MANAGER = null;
     }
 
 
@@ -35,51 +29,19 @@ public class PlayerSlotAPI {
         return PLUGIN;
     }
 
-    /**
-     * 槽位注册
-     *
-     * @param slot 要注册的槽位类型
-     */
-
-    public static void registerSlot(AbstractSlot slot) {
-        PlayerCache.registerSlot(slot);
+    public static PlayerSlotManager getPublicManager() {
+        if (PUBLIC_MANAGER == null) {
+            PUBLIC_MANAGER = new PlayerSlotManager();
+            PUBLIC_MANAGER.registerVanilla();
+            PUBLIC_MANAGER.registerEvents();
+        }
+        return PUBLIC_MANAGER;
     }
 
-    /**
-     * 注册原版槽位和监听事件
-     */
-    public static void registerVanilla() {
-        PlayerCache.registerVanilla();
-    }
-
-    /**
-     * 注册装备信息读取器
-     * 读取器负责从装备上读取出指定的信息
-     * 装备更新时, 读取器将被异步调用
-     *
-     * @param clazz  信息类型
-     * @param reader 读取器
-     */
-    public static <T> void registerDataReader(Class<T> clazz, Function<ItemStack, T> reader) {
-        PlayerCache.registerDataReader(clazz, reader);
-    }
-
-    /**
-     * 获取玩家槽位缓存信息
-     *
-     * @param player 要获取的玩家
-     * @return 玩家槽位缓存
-     */
-    public static PlayerCache getCache(Player player) {
-        return MANAGER.getPlayerCache(player);
-    }
-
-    /**
-     * 重载所有缓存
-     */
-
-    public static void reload() {
-        MANAGER.reload();
+    public static PlayerSlotManager getPrivateManger() {
+        PlayerSlotManager privateManager = new PlayerSlotManager();
+        privateManager.registerEvents();
+        return privateManager;
     }
 
     /**
@@ -98,6 +60,5 @@ public class PlayerSlotAPI {
             dragonCoreHook = new DragonCoreHook();
             Bukkit.getConsoleSender().sendMessage("§9[§ePlayerSlotApi§9]§f 已加载DragonCore作为前置!");
         }
-        MANAGER.registerEvents();
     }
 }

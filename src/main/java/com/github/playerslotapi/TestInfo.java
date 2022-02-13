@@ -6,13 +6,13 @@ package com.github.playerslotapi;
  */
 public class TestInfo {
 
-    public String getInfo() {
-        return info;
-    }
+    private final String info;
 
     public TestInfo(String info) {
         this.info = info;
     }
 
-    private final String info;
+    public String getInfo() {
+        return info;
+    }
 }

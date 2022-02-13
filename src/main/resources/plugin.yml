@@ -1,7 +1,9 @@
 name: PlayerSlotAPI
 main: com.github.playerslotapi.PlayerSlotPlugin
-author: YiMiner,StrawberryYu
-version: ${project.version}
+authors:
+  - YiMiner
+  - StrawberryYu
+version: ${version}
 softdepend:
   - Vault
   - PlaceHolderAPI

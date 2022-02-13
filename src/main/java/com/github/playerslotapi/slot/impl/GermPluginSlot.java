@@ -1,11 +1,11 @@
 package com.github.playerslotapi.slot.impl;
 
 import com.github.playerslotapi.PlayerSlotAPI;
-import com.github.playerslotapi.slot.AbstractSlot;
+import com.github.playerslotapi.slot.PlayerSlot;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-public class GermPluginSlot extends AbstractSlot {
+public class GermPluginSlot extends PlayerSlot {
 
     private final String identifier;
 

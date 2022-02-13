@@ -7,13 +7,13 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.TreeSet;
 
-public abstract class AbstractSlot {
+public abstract class PlayerSlot {
 
     private final String name;
 
     private final Set<String> aliases = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
-    public AbstractSlot(String name, String... aliases) {
+    public PlayerSlot(String name, String... aliases) {
         this.name = name;
         this.aliases.addAll(Arrays.asList(aliases));
     }
@@ -33,7 +33,7 @@ public abstract class AbstractSlot {
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof AbstractSlot && name.equals(((AbstractSlot) o).name);
+        return o instanceof PlayerSlot && name.equals(((PlayerSlot) o).name);
     }
 
     @Override

@@ -1,24 +1,43 @@
 package com.github.playerslotapi.event;
 
-import com.github.playerslotapi.slot.AbstractSlot;
-import org.bukkit.Material;
+import com.github.playerslotapi.slot.PlayerSlot;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 
-public class AsyncSlotUpdateEvent extends Event implements Cancellable {
+/**
+ * 异步槽位更新事件. 1 tick后触发, 使得槽位更新捕捉准确
+ * 这个事件不能取消, 仅作为通知使用
+ */
+public class AsyncSlotUpdateEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
+    /**
+     * 触发原因
+     */
+    private final UpdateTrigger trigger;
+    /**
+     * 玩家
+     */
     private final Player player;
-    private final AbstractSlot slot;
+    /**
+     * 更新的槽位
+     */
+    private final PlayerSlot slot;
+    /**
+     * 旧装备的副本
+     */
     private final ItemStack oldItem;
-    private boolean isCancelled;
 
-    private ItemStack newItem;
+    /**
+     * 新装备的副本
+     */
+    private final ItemStack newItem;
 
-    public AsyncSlotUpdateEvent(Player player, AbstractSlot slot, ItemStack oldItem, ItemStack newItem) {
+
+    public AsyncSlotUpdateEvent(UpdateTrigger trigger, Player player, PlayerSlot slot, ItemStack oldItem, ItemStack newItem) {
         super(true);
+        this.trigger = trigger;
         this.player = player;
         this.slot = slot;
         this.oldItem = oldItem;
@@ -29,11 +48,15 @@ public class AsyncSlotUpdateEvent extends Event implements Cancellable {
         return HANDLERS;
     }
 
+    public UpdateTrigger getTrigger() {
+        return trigger;
+    }
+
     public Player getPlayer() {
         return player;
     }
 
-    public AbstractSlot getSlot() {
+    public PlayerSlot getSlot() {
         return slot;
     }
 
@@ -42,24 +65,7 @@ public class AsyncSlotUpdateEvent extends Event implements Cancellable {
     }
 
     public ItemStack getNewItem() {
-        if (newItem == null || newItem.getType() == Material.AIR) {
-            newItem = new ItemStack(Material.AIR);
-        }
         return newItem;
-    }
-
-    public void setNewItem(ItemStack newItem) {
-        this.newItem = newItem;
-    }
-
-    @Override
-    public boolean isCancelled() {
-        return isCancelled;
-    }
-
-    @Override
-    public void setCancelled(boolean b) {
-        isCancelled = b;
     }
 
     @Override
