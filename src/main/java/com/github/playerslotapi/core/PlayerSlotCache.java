@@ -48,7 +48,7 @@ public class PlayerSlotCache {
     public void initSlot(PlayerSlot slot) {
         ItemStack item = slot.get(player);
         item = item == null ? new ItemStack(Material.AIR) : item.clone();
-        itemCache.put(slot,item);
+        itemCache.put(slot, item);
         Map<Class<?>, Object> data = new ConcurrentHashMap<>();
         dataCache.put(slot, data);
         for (Map.Entry<Class<?>, Function<ItemStack, ?>> entry : parent.getDataReaders().entrySet()) {
@@ -119,7 +119,7 @@ public class PlayerSlotCache {
         final ItemStack oldItem = itemCache.get(slot);
         final ItemStack newItem = item == null ? new ItemStack(Material.AIR) : item.clone();
         Bukkit.getScheduler().runTaskAsynchronously(PlayerSlotAPI.getPlugin(), () -> {
-            if(oldItem.equals(newItem)){
+            if (oldItem.equals(newItem)) {
                 return;
             }
             AsyncSlotUpdateEvent asyncEvent = new AsyncSlotUpdateEvent(trigger, player, slot, oldItem, newItem);

@@ -49,6 +49,7 @@ public class VanillaListener {
             "CARTOGRAPHY_TABLE", "COMPOSTER", "GRINDSTONE", "LECTERN", "LOOM", "STONECUTTER", "BELL",
             "BEEHIVE"
     );
+    private static boolean disableDropDetect = false;
 
     /**
      * 工具函数，用于同时触发槽位预更新和后更新事件
@@ -75,10 +76,11 @@ public class VanillaListener {
 
     @SuppressWarnings("deprecation")
     public static void registerEvents() {
-        Events.subscribe(PlayerCommandPreprocessEvent.class, VanillaListener::onHatCommand);
         Events.subscribe(InventoryClickEvent.class, VanillaListener::onInventoryClick);
-        Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem);
         Events.subscribe(InventoryDragEvent.class, VanillaListener::onInventoryDrag);
+        Events.subscribe(InventoryCloseEvent.class, VanillaListener::onInventoryClose);
+        Events.subscribe(PlayerCommandPreprocessEvent.class, VanillaListener::onHatCommand);
+        Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem);
         Events.subscribe(PlayerItemHeldEvent.class, VanillaListener::onPlayerItemHeld);
         Events.subscribe(PlayerSwapHandItemsEvent.class, VanillaListener::onPlayerSwapItem);
         Events.subscribe(PlayerPickupItemEvent.class, VanillaListener::onPlayerPickupItem);
@@ -115,7 +117,17 @@ public class VanillaListener {
         }
         if (event.getClickedInventory() == null) {
             // 点击栏外 直接返回
+            if (event.getAction() == InventoryAction.DROP_ALL_CURSOR || event.getAction() == InventoryAction.DROP_ONE_CURSOR) {
+                disableDropDetect = true;
+            }
             return;
+        }
+        if (event.getAction() == InventoryAction.DROP_ALL_SLOT || event.getAction() == InventoryAction.DROP_ONE_SLOT) {
+            // 鼠标有物品的时候按Q丢不了东西
+            if (!isAir(event.getCursor())) {
+                return;
+            }
+            disableDropDetect = true;
         }
         boolean shift = false;
         boolean numberkey = false;
@@ -203,8 +215,20 @@ public class VanillaListener {
                         } else if (!callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), new ItemStack(Material.AIR))) {
                             event.setCancelled(true);
                         }
-                    } else if (!callSlotUpdate(UpdateTrigger.PICK_DROP, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), event.getCursor())) {
-                        event.setCancelled(true);
+                    } else {
+                        ItemStack newItem;
+                        if (event.getAction() == InventoryAction.DROP_ONE_SLOT) {
+                            newItem = event.getCurrentItem().clone();
+                            newItem.setAmount(newItem.getAmount() - 1);
+                        } else if (event.getAction() == InventoryAction.DROP_ALL_SLOT) {
+                            newItem = new ItemStack(Material.AIR);
+                        } else {
+                            newItem = event.getCursor();
+                        }
+                        if (!callSlotUpdate(UpdateTrigger.PICK_DROP, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(),
+                                newItem)) {
+                            event.setCancelled(true);
+                        }
                     }
                     return;
                 }
@@ -280,7 +304,7 @@ public class VanillaListener {
                     // 如果没有放弃则触发事件
                     if (!abort) {
                         ItemStack newItem = item.clone();
-                        newItem.setAmount(Math.min((isAir(mainHandItem)?0:mainHandItem.getAmount())+amount,mainHandItem.getMaxStackSize()));
+                        newItem.setAmount(Math.min((isAir(mainHandItem) ? 0 : mainHandItem.getAmount()) + amount, mainHandItem.getMaxStackSize()));
                         if (!callSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, mainHandItem, newItem)) {
                             event.setCancelled(true);
                             return;
@@ -317,7 +341,20 @@ public class VanillaListener {
             // 点击其它位置的shift已经被检查过了 直接省略
         } else {
             // 取得新物品
-            ItemStack newItem = numberkey ? event.getClickedInventory().getItem(event.getHotbarButton()) : event.getCursor();
+            ItemStack newItem;
+            if (numberkey) {
+                newItem = event.getClickedInventory().getItem(event.getHotbarButton());
+                newItem = newItem == null ? new ItemStack(Material.AIR) : newItem;
+            } else {
+                if (event.getAction() == InventoryAction.DROP_ONE_SLOT) {
+                    newItem = event.getCurrentItem().clone();
+                    newItem.setAmount(newItem.getAmount() - 1);
+                } else if (event.getAction() == InventoryAction.DROP_ALL_SLOT) {
+                    newItem = new ItemStack(Material.AIR);
+                } else {
+                    newItem = event.getCursor();
+                }
+            }
             // 如果槽位不是副手, 那么交换需要检查是否放的进去
             if (slot != VanillaEquipSlot.OFFHAND) {
                 // 空气肯定能放进去
@@ -534,17 +571,30 @@ public class VanillaListener {
         }
     }
 
+
+    /**
+     * 关闭GUI时如果鼠标上还有东西, 暂时禁止掉落检测
+     *
+     * @param event GUI关闭事件
+     */
+    private static void onInventoryClose(InventoryCloseEvent event) {
+        if (!isAir(event.getPlayer().getItemOnCursor())) {
+            disableDropDetect = true;
+        }
+    }
+
     /**
      * 检查玩家丢弃物品事件
      *
      * @param event
      */
     private static void onPlayerDropItem(PlayerDropItemEvent event) {
-        Player player = event.getPlayer();
-        // 鼠标有物品时是丢弃鼠标物品, 不触发检查
-        if (!isAir(player.getItemOnCursor())) {
+        if (disableDropDetect) {
+            disableDropDetect = false;
             return;
         }
+        Player player = event.getPlayer();
+        // 鼠标有物品时是丢弃鼠标物品, 不触发检查
         ItemStack newItem = player.getInventory().getItemInMainHand();
         ItemStack droppedItem = event.getItemDrop().getItemStack();
         ItemStack oldItem;

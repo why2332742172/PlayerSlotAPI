@@ -66,10 +66,10 @@ public class PlayerSlotPlugin extends JavaPlugin {
                 }
             }, 1L);
         });
-        Events.subscribe(SlotUpdateEvent.class, event->{
+        Events.subscribe(SlotUpdateEvent.class, event -> {
             event.getPlayer().sendMessage("同步装备更新 - " + event.getSlot().toString() + ": "
-                    + event.getOldItem().getType().toString() + "*" + event.getOldItem().getAmount()+
-                    " -> " + (event.getNewItem() == null? "无法判断":
+                    + event.getOldItem().getType().toString() + "*" + event.getOldItem().getAmount() +
+                    " -> " + (event.getNewItem() == null ? "无法判断" :
                     event.getNewItem().getType().toString() + "*" + event.getNewItem().getAmount()));
         });
     }

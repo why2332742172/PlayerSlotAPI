@@ -150,7 +150,7 @@ public class PlayerSlotManager {
     private void onItemEquip(SlotUpdateEvent event) {
         Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(), () -> {
             PlayerSlotCache cache = getPlayerCache(event.getPlayer());
-            cache.updateCachedItem(event.getTrigger(),event.getSlot(), event.getSlot().get(event.getPlayer()));
+            cache.updateCachedItem(event.getTrigger(), event.getSlot(), event.getSlot().get(event.getPlayer()));
         });
     }
 
