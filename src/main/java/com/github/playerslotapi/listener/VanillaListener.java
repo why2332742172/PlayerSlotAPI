@@ -74,12 +74,15 @@ public class VanillaListener {
         return !update.isCancelled();
     }
 
+    /**
+     * 订阅所有事件
+     */
     @SuppressWarnings("deprecation")
     public static void registerEvents() {
         Events.subscribe(InventoryClickEvent.class, VanillaListener::onInventoryClick);
         Events.subscribe(InventoryDragEvent.class, VanillaListener::onInventoryDrag);
         Events.subscribe(InventoryCloseEvent.class, VanillaListener::onInventoryClose);
-        Events.subscribe(PlayerCommandPreprocessEvent.class, VanillaListener::onHatCommand);
+        Events.subscribe(PlayerCommandPreprocessEvent.class, VanillaListener::onCommand);
         Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem);
         Events.subscribe(PlayerItemHeldEvent.class, VanillaListener::onPlayerItemHeld);
         Events.subscribe(PlayerSwapHandItemsEvent.class, VanillaListener::onPlayerSwapItem);
@@ -436,8 +439,8 @@ public class VanillaListener {
             if (mainHandIndex == event.getView().convertSlot(entry.getKey())) {
                 if (!callSlotUpdate(UpdateTrigger.DRAG, player, VanillaEquipSlot.MAINHAND, event.getView().getItem(entry.getKey()), entry.getValue())) {
                     event.setCancelled(true);
+                    return;
                 }
-                return;
             }
         }
         final int[] slots = {5, 6, 7, 8, 45};
@@ -661,7 +664,7 @@ public class VanillaListener {
         }
     }
 
-    private static void onHatCommand(PlayerCommandPreprocessEvent event) {
+    private static void onCommand(PlayerCommandPreprocessEvent event) {
         // 出于兼容性考虑
         // hat指令将触发头盔的更新
         // 其它指令则仅仅异步检查主手
@@ -670,8 +673,13 @@ public class VanillaListener {
         if (isAir(mainhand)) {
             return;
         }
-        if (event.getMessage().toLowerCase().startsWith("/hat") && mainhand.getType().isBlock() &&
-                !callSlotUpdate(UpdateTrigger.COMMAND_HAT, player, VanillaEquipSlot.HELMET, player.getInventory().getHelmet(), mainhand)) {
+        if (event.getMessage().toLowerCase().startsWith("/hat")) {
+            if(mainhand.getType().isBlock() && !callSlotUpdate(UpdateTrigger.COMMAND_HAT, player, VanillaEquipSlot.HELMET, player.getInventory().getHelmet(), mainhand)) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+        if(!callSlotUpdate(UpdateTrigger.COMMAND, player,VanillaEquipSlot.MAINHAND,mainhand,null)){
             event.setCancelled(true);
         }
     }
