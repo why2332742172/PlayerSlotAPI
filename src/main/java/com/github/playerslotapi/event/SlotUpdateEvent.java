@@ -71,11 +71,11 @@ public class SlotUpdateEvent extends PlayerEvent implements Cancellable {
         return slot;
     }
 
-    public boolean isUpdateImmediately(){
+    public boolean isUpdateImmediately() {
         return immediate;
     }
 
-    public void setUpdateImmediately(){
+    public void setUpdateImmediately() {
         immediate = true;
     }
 

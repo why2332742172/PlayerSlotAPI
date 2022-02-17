@@ -55,7 +55,7 @@ public class PlayerSlotCache {
      * @param slot 要加载的槽位
      */
     public void initSlot(PlayerSlot slot) {
-        slot.get(player, item ->{
+        slot.get(player, item -> {
             item = item == null ? new ItemStack(Material.AIR) : item.clone();
             itemCache.put(slot, item);
             Map<Class<?>, Object> data = new ConcurrentHashMap<>();
@@ -108,13 +108,14 @@ public class PlayerSlotCache {
     /**
      * 获取异步修改槽位中的物品
      * 如果是第一次获取, 顺便储存修改前的槽位状态
+     *
      * @param slot 槽位
      * @return 异步修改后的物品
      */
     @NotNull
-    public ItemStack getModifiedItem(PlayerSlot slot){
+    public ItemStack getModifiedItem(PlayerSlot slot) {
         ItemStack modifiedItem = modifiedCache.get(slot);
-        if(modifiedItem == null){
+        if (modifiedItem == null) {
             modifiedItem = getCachedItem(slot);
             initialCache.put(slot, modifiedItem);
         }
@@ -128,7 +129,7 @@ public class PlayerSlotCache {
      * @param slot 槽位
      * @param item 新的异步修改后的物品
      */
-    public void setModifiedItem(PlayerSlot slot, ItemStack item){
+    public void setModifiedItem(PlayerSlot slot, ItemStack item) {
         modifiedCache.put(slot, item);
     }
 
@@ -141,30 +142,32 @@ public class PlayerSlotCache {
      * @param ignoreDamage 是否忽略耐久变化
      * @return 修改的装备的数量。为0的话则没有修改任何装备
      */
-    public void applyModification(boolean ignoreDamage){
+    public void applyModification(boolean ignoreDamage) {
         final List<Map.Entry<PlayerSlot, ItemStack>> slots = new ArrayList<>(modifiedCache.entrySet());
         modifiedCache.clear();
         initialCache.clear();
-        for(Map.Entry<PlayerSlot, ItemStack> entry : slots) {
+        for (Map.Entry<PlayerSlot, ItemStack> entry : slots) {
             PlayerSlot slot = entry.getKey();
-            slot.get(player, truth ->{
+            slot.get(player, truth -> {
                 if (Util.isAir(truth)) {
                     // 禁止修改空气装备
                     return;
                 }
                 ItemStack verify = initialCache.get(slot);
-                if (ignoreDamage){
+                if (ignoreDamage) {
                     if (verify.getType() != truth.getType() || verify.getAmount() != truth.getAmount() || !Bukkit.getItemFactory().equals(verify.getItemMeta(), truth.getItemMeta())) {
                         return;
                     }
-                } else if(verify.equals(truth)){
+                } else if (verify.equals(truth)) {
                     return;
                 }
-                if(Bukkit.isPrimaryThread()||slot.isAsyncSafe()) {
-                    slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()), result -> { });
-                }else{
-                    Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(),()->{
-                        slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()), result -> { });
+                if (Bukkit.isPrimaryThread() || slot.isAsyncSafe()) {
+                    slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()), result -> {
+                    });
+                } else {
+                    Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(), () -> {
+                        slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()), result -> {
+                        });
                     });
                 }
             });
@@ -236,7 +239,7 @@ public class PlayerSlotCache {
      */
     public void updateAll() {
         for (PlayerSlot slot : parent.getRegisteredSlots()) {
-            slot.get(player, item-> updateCachedItem(UpdateTrigger.CUSTOM, slot, item));
+            slot.get(player, item -> updateCachedItem(UpdateTrigger.CUSTOM, slot, item));
         }
     }
 }

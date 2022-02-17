@@ -3,7 +3,6 @@ package com.github.playerslotapi.hook;
 
 import com.github.playerslotapi.util.Util;
 import eos.moe.dragoncore.DragonCore;
-import eos.moe.dragoncore.api.event.PlayerSlotUpdateEvent;
 import eos.moe.dragoncore.database.IDataBase;
 import eos.moe.dragoncore.network.PacketSender;
 import org.bukkit.Bukkit;
@@ -28,10 +27,11 @@ public class DragonCoreHook {
                 if (!Util.isAir(itemStack)) {
                     //有物品则返回该物品
                     callback.accept(itemStack);
-                }else{
+                } else {
                     callback.accept(new ItemStack(Material.AIR));
                 }
             }
+
             @Override
             public void onFail() {
                 callback.accept(null);
@@ -39,7 +39,7 @@ public class DragonCoreHook {
         });
     }
 
-    public void setItemToSlot(Player player, String identifier,  ItemStack toBePuttedItem, Consumer<Boolean> callback) {
+    public void setItemToSlot(Player player, String identifier, ItemStack toBePuttedItem, Consumer<Boolean> callback) {
         instance.getDB().setData(player, identifier, toBePuttedItem, new IDataBase.Callback<ItemStack>() {
             @Override
             public void onResult(ItemStack itemStack) {
@@ -59,7 +59,6 @@ public class DragonCoreHook {
             }
         });
     }
-
 
 
 }

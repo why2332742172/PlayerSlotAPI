@@ -513,7 +513,8 @@ public class VanillaHook {
         // 检查是否是已知槽位
         if (slot != null) {
             if (cancelSlotUpdate(UpdateTrigger.BROKE, player, slot, item, newItem)) {
-                slot.set(player, item, result->{});
+                slot.set(player, item, result -> {
+                });
             }
             return;
         }
@@ -677,12 +678,12 @@ public class VanillaHook {
             return;
         }
         if (event.getMessage().toLowerCase().startsWith("/hat")) {
-            if(mainhand.getType().isBlock() && cancelSlotUpdate(UpdateTrigger.COMMAND_HAT, player, VanillaEquipSlot.HELMET, player.getInventory().getHelmet(), mainhand)) {
+            if (mainhand.getType().isBlock() && cancelSlotUpdate(UpdateTrigger.COMMAND_HAT, player, VanillaEquipSlot.HELMET, player.getInventory().getHelmet(), mainhand)) {
                 event.setCancelled(true);
             }
             return;
         }
-        if(cancelSlotUpdate(UpdateTrigger.COMMAND, player, VanillaEquipSlot.MAINHAND, mainhand, null)){
+        if (cancelSlotUpdate(UpdateTrigger.COMMAND, player, VanillaEquipSlot.MAINHAND, mainhand, null)) {
             event.setCancelled(true);
         }
     }

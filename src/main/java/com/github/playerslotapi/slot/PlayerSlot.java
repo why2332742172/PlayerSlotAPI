@@ -21,8 +21,9 @@ public abstract class PlayerSlot {
 
     public abstract boolean isAsyncSafe();
 
-    public void set(Player player, ItemStack item){
-        set(player,item,result->{});
+    public void set(Player player, ItemStack item) {
+        set(player, item, result -> {
+        });
     }
 
     public abstract void get(Player player, Consumer<ItemStack> callback);

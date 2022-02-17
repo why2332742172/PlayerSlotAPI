@@ -93,7 +93,7 @@ public class VanillaEquipSlot extends PlayerSlot {
         callback.accept(true);
     }
 
-    public ItemStack get(Player player){
+    public ItemStack get(Player player) {
         return getter.apply(player);
     }
 

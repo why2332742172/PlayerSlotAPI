@@ -24,11 +24,11 @@ public class DragonCoreSlot extends PlayerSlot {
 
     @Override
     public void get(Player player, Consumer<ItemStack> callback) {
-        if(Bukkit.isPrimaryThread()) {
-            Bukkit.getScheduler().runTaskAsynchronously(PlayerSlotAPI.getPlugin(),()->{
+        if (Bukkit.isPrimaryThread()) {
+            Bukkit.getScheduler().runTaskAsynchronously(PlayerSlotAPI.getPlugin(), () -> {
                 PlayerSlotAPI.dragonCoreHook.getItemFromSlot(player, identifier, callback);
             });
-        }else{
+        } else {
             PlayerSlotAPI.dragonCoreHook.getItemFromSlot(player, identifier, callback);
         }
     }

@@ -85,25 +85,25 @@ public class PlayerSlotManager {
      * @param slot 要注册的槽位类型
      */
     public void registerSlot(PlayerSlot slot) {
-        if(REGISTERED_SLOTS.contains(slot)){
+        if (REGISTERED_SLOTS.contains(slot)) {
             return;
         }
         REGISTERED_SLOTS.add(slot);
         for (PlayerSlotCache cache : PLAYER_MAP.values()) {
             cache.initSlot(slot);
         }
-        if(slot instanceof DragonCoreSlot){
-            if(PlayerSlotAPI.dragonCoreHook == null || dragonCore){
+        if (slot instanceof DragonCoreSlot) {
+            if (PlayerSlotAPI.dragonCoreHook == null || dragonCore) {
                 return;
             }
-            Events.subscribe(PlayerSlotUpdateEvent.class, event ->{
+            Events.subscribe(PlayerSlotUpdateEvent.class, event -> {
                 ItemStack newItem = event.getItemStack();
                 SlotUpdateEvent update = new SlotUpdateEvent(UpdateTrigger.DRAGON_CORE, event.getPlayer(), slot, null, newItem);
                 update.setUpdateImmediately();
                 Bukkit.getPluginManager().callEvent(update);
             });
             dragonCore = true;
-        }else if(slot instanceof GermPluginSlot) {
+        } else if (slot instanceof GermPluginSlot) {
             if (PlayerSlotAPI.germPluginHook == null || germPlugin) {
                 return;
             }
@@ -113,8 +113,8 @@ public class PlayerSlotManager {
                     update.setUpdateImmediately();
                     Bukkit.getPluginManager().callEvent(update);
                 });
-            }catch (Throwable e){
-                Events.subscribe(GermGuiSlotPreClickEvent.class,event->{
+            } catch (Throwable e) {
+                Events.subscribe(GermGuiSlotPreClickEvent.class, event -> {
                     // 旧版萌芽获取不到新旧物品, 因此需要延时检测
                     ItemStack oldItem = event.getSlot();
                     ItemStack newItem = event.getCursor();
@@ -123,7 +123,7 @@ public class PlayerSlotManager {
                     }
                     SlotUpdateEvent update = new SlotUpdateEvent(UpdateTrigger.GERM_PLUGIN, event.getPlayer(), slot, oldItem, newItem);
                     Bukkit.getPluginManager().callEvent(update);
-                    if(update.isCancelled()){
+                    if (update.isCancelled()) {
                         event.setCancelled(true);
                     }
                 });
@@ -200,10 +200,10 @@ public class PlayerSlotManager {
 
     private void onSlotUpdate(SlotUpdateEvent event) {
         PlayerSlotCache cache = getPlayerCache(event.getPlayer());
-        if(event.isUpdateImmediately()){
+        if (event.isUpdateImmediately()) {
             // 如果是forceUpdate, 立即更新无视准确性
-            cache.updateCachedItem(event.getTrigger(),event.getSlot(),event.getNewItem());
-        }else {
+            cache.updateCachedItem(event.getTrigger(), event.getSlot(), event.getNewItem());
+        } else {
             // 否则延迟1 tick 检查, 准确更新装备缓存
             Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(), () -> {
 

@@ -2,7 +2,6 @@ package com.github.playerslotapi.slot.impl;
 
 import com.github.playerslotapi.PlayerSlotAPI;
 import com.github.playerslotapi.slot.PlayerSlot;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -24,12 +23,12 @@ public class GermPluginSlot extends PlayerSlot {
 
     @Override
     public void get(Player player, Consumer<ItemStack> callback) {
-        callback.accept(PlayerSlotAPI.germPluginHook.getItemFromSlot(player,identifier));
+        callback.accept(PlayerSlotAPI.germPluginHook.getItemFromSlot(player, identifier));
     }
 
     @Override
     public void set(Player player, ItemStack item, Consumer<Boolean> callback) {
-        PlayerSlotAPI.germPluginHook.setItemToSlot(player,identifier,item);
+        PlayerSlotAPI.germPluginHook.setItemToSlot(player, identifier, item);
         callback.accept(true);
     }
 }

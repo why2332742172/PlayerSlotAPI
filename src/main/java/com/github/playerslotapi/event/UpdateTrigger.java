@@ -78,6 +78,5 @@ public enum UpdateTrigger {
     /**
      * GermPlugin slot
      */
-    GERM_PLUGIN
-    ;
+    GERM_PLUGIN;
 }
