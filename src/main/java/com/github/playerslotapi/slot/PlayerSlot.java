@@ -6,6 +6,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 
 public abstract class PlayerSlot {
 
@@ -18,9 +19,15 @@ public abstract class PlayerSlot {
         this.aliases.addAll(Arrays.asList(aliases));
     }
 
-    public abstract ItemStack get(Player player);
+    public abstract boolean isAsyncSafe();
 
-    public abstract void set(Player player, ItemStack item);
+    public void set(Player player, ItemStack item){
+        set(player,item,result->{});
+    }
+
+    public abstract void get(Player player, Consumer<ItemStack> callback);
+
+    public abstract void set(Player player, ItemStack item, Consumer<Boolean> callback);
 
     public final Set<String> getAliases() {
         return aliases;

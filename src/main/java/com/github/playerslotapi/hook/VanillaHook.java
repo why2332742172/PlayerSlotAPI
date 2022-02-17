@@ -1,4 +1,4 @@
-package com.github.playerslotapi.listener;
+package com.github.playerslotapi.hook;
 
 
 import com.github.playerslotapi.event.SlotUpdateEvent;
@@ -27,7 +27,7 @@ import static com.github.playerslotapi.util.Util.isAir;
 import static com.github.playerslotapi.util.Util.newHashSet;
 
 
-public class VanillaListener {
+public class VanillaHook {
 
     private static final Set<String> BLOCKED_MATERIALS = newHashSet(
             "FURNACE", "CHEST", "TRAPPED_CHEST", "BEACON", "DISPENSER", "DROPPER", "HOPPER",
@@ -79,17 +79,17 @@ public class VanillaListener {
      */
     @SuppressWarnings("deprecation")
     public static void registerEvents() {
-        Events.subscribe(InventoryClickEvent.class, VanillaListener::onInventoryClick);
-        Events.subscribe(InventoryDragEvent.class, VanillaListener::onInventoryDrag);
-        Events.subscribe(InventoryCloseEvent.class, VanillaListener::onInventoryClose);
-        Events.subscribe(PlayerCommandPreprocessEvent.class, VanillaListener::onCommand);
-        Events.subscribe(PlayerDropItemEvent.class, VanillaListener::onPlayerDropItem);
-        Events.subscribe(PlayerItemHeldEvent.class, VanillaListener::onPlayerItemHeld);
-        Events.subscribe(PlayerSwapHandItemsEvent.class, VanillaListener::onPlayerSwapItem);
-        Events.subscribe(PlayerPickupItemEvent.class, VanillaListener::onPlayerPickupItem);
-        Events.subscribe(PlayerItemDamageEvent.class, VanillaListener::onPlayerItemDamage);
-        Events.subscribe(PlayerInteractEvent.class, EventPriority.HIGHEST, false, VanillaListener::onPlayerInteract);
-        Events.subscribe(PlayerItemBreakEvent.class, EventPriority.MONITOR, false, VanillaListener::onPlayerItemBreak);
+        Events.subscribe(InventoryClickEvent.class, VanillaHook::onInventoryClick);
+        Events.subscribe(InventoryDragEvent.class, VanillaHook::onInventoryDrag);
+        Events.subscribe(InventoryCloseEvent.class, VanillaHook::onInventoryClose);
+        Events.subscribe(PlayerCommandPreprocessEvent.class, VanillaHook::onCommand);
+        Events.subscribe(PlayerDropItemEvent.class, VanillaHook::onPlayerDropItem);
+        Events.subscribe(PlayerItemHeldEvent.class, VanillaHook::onPlayerItemHeld);
+        Events.subscribe(PlayerSwapHandItemsEvent.class, VanillaHook::onPlayerSwapItem);
+        Events.subscribe(PlayerPickupItemEvent.class, VanillaHook::onPlayerPickupItem);
+        Events.subscribe(PlayerItemDamageEvent.class, VanillaHook::onPlayerItemDamage);
+        Events.subscribe(PlayerInteractEvent.class, EventPriority.HIGHEST, false, VanillaHook::onPlayerInteract);
+        Events.subscribe(PlayerItemBreakEvent.class, EventPriority.MONITOR, false, VanillaHook::onPlayerItemBreak);
         try {
             Events.subscribe(BlockDispenseArmorEvent.class, event -> {
                 VanillaEquipSlot slot = VanillaEquipSlot.matchType(event.getItem());
@@ -513,7 +513,7 @@ public class VanillaListener {
         // 检查是否是已知槽位
         if (slot != null) {
             if (cancelSlotUpdate(UpdateTrigger.BROKE, player, slot, item, newItem)) {
-                slot.set(player, item);
+                slot.set(player, item, result->{});
             }
             return;
         }

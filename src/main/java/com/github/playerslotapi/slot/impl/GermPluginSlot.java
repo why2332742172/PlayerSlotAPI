@@ -2,8 +2,11 @@ package com.github.playerslotapi.slot.impl;
 
 import com.github.playerslotapi.PlayerSlotAPI;
 import com.github.playerslotapi.slot.PlayerSlot;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.function.Consumer;
 
 public class GermPluginSlot extends PlayerSlot {
 
@@ -15,12 +18,18 @@ public class GermPluginSlot extends PlayerSlot {
     }
 
     @Override
-    public ItemStack get(Player player) {
-        return PlayerSlotAPI.germPluginHook.getItemFromSlot(identifier, player);
+    public boolean isAsyncSafe() {
+        return true;
     }
 
     @Override
-    public void set(Player player, ItemStack item) {
-        PlayerSlotAPI.germPluginHook.setItemToSlot(identifier, player, item);
+    public void get(Player player, Consumer<ItemStack> callback) {
+        callback.accept(PlayerSlotAPI.germPluginHook.getItemFromSlot(player,identifier));
+    }
+
+    @Override
+    public void set(Player player, ItemStack item, Consumer<Boolean> callback) {
+        PlayerSlotAPI.germPluginHook.setItemToSlot(player,identifier,item);
+        callback.accept(true);
     }
 }

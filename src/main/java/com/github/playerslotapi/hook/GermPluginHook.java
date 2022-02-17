@@ -16,13 +16,11 @@ public class GermPluginHook {
         this.instance = GermPlugin.getPlugin();
     }
 
-    public ItemStack getItemFromSlot(String identifier, Player player) {
-        List<String> list = new ArrayList<>();
-        list.add(identifier);
-        return GermSlotAPI.getGermSlotItemStacks(player, list).get(0);
+    public ItemStack getItemFromSlot(Player player, String identity) {
+        return GermSlotAPI.getItemStackFromIdentity(player, identity);
     }
 
-    public void setItemToSlot(String identifier, Player player, ItemStack toBePuttedItem) {
+    public void setItemToSlot(Player player, String identifier, ItemStack toBePuttedItem) {
         GermSlotAPI.saveItemStackToIdentity(player, identifier, toBePuttedItem);
     }
 }

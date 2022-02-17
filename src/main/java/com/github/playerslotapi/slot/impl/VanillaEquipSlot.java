@@ -8,6 +8,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class VanillaEquipSlot extends PlayerSlot {
@@ -77,13 +78,23 @@ public class VanillaEquipSlot extends PlayerSlot {
     }
 
     @Override
-    public ItemStack get(Player player) {
-        return getter.apply(player);
+    public boolean isAsyncSafe() {
+        return false;
     }
 
     @Override
-    public void set(Player player, ItemStack item) {
+    public void get(Player player, Consumer<ItemStack> callback) {
+        callback.accept(getter.apply(player));
+    }
+
+    @Override
+    public void set(Player player, ItemStack item, Consumer<Boolean> callback) {
         setter.accept(player, item);
+        callback.accept(true);
+    }
+
+    public ItemStack get(Player player){
+        return getter.apply(player);
     }
 
     public int getId() {

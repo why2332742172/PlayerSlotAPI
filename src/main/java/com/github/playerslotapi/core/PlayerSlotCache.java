@@ -12,6 +12,8 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,21 +55,22 @@ public class PlayerSlotCache {
      * @param slot 要加载的槽位
      */
     public void initSlot(PlayerSlot slot) {
-        ItemStack item = slot.get(player);
-        item = item == null ? new ItemStack(Material.AIR) : item.clone();
-        itemCache.put(slot, item);
-        Map<Class<?>, Object> data = new ConcurrentHashMap<>();
-        dataCache.put(slot, data);
-        for (Map.Entry<Class<?>, Function<ItemStack, ?>> entry : parent.getDataReaders().entrySet()) {
-            try {
-                Object info = entry.getValue().apply(item);
-                if (info != null) {
-                    data.put(entry.getKey(), info);
+        slot.get(player, item ->{
+            item = item == null ? new ItemStack(Material.AIR) : item.clone();
+            itemCache.put(slot, item);
+            Map<Class<?>, Object> data = new ConcurrentHashMap<>();
+            dataCache.put(slot, data);
+            for (Map.Entry<Class<?>, Function<ItemStack, ?>> entry : parent.getDataReaders().entrySet()) {
+                try {
+                    Object info = entry.getValue().apply(item);
+                    if (info != null) {
+                        data.put(entry.getKey(), info);
+                    }
+                } catch (Throwable e) {
+                    e.printStackTrace();
                 }
-            } catch (Throwable e) {
-                e.printStackTrace();
             }
-        }
+        });
     }
 
     /**
@@ -138,29 +141,34 @@ public class PlayerSlotCache {
      * @param ignoreDamage 是否忽略耐久变化
      * @return 修改的装备的数量。为0的话则没有修改任何装备
      */
-    public int applyModification(boolean ignoreDamage){
-        int count = 0;
-        for(Map.Entry<PlayerSlot, ItemStack> entry : modifiedCache.entrySet()) {
-            PlayerSlot slot = entry.getKey();
-            ItemStack truth = slot.get(player);
-            if (Util.isAir(truth)) {
-                // 禁止修改空气装备
-                continue;
-            }
-            ItemStack verify = initialCache.get(slot);
-            if (ignoreDamage){
-                if (verify.getType() != truth.getType() || verify.getAmount() != truth.getAmount() || !Bukkit.getItemFactory().equals(verify.getItemMeta(), truth.getItemMeta())) {
-                    continue;
-                }
-            } else if(verify.equals(truth)){
-                continue;
-            }
-            count++;
-            slot.set(player,modifiedCache.getOrDefault(slot,AIR.clone()));
-        }
+    public void applyModification(boolean ignoreDamage){
+        final List<Map.Entry<PlayerSlot, ItemStack>> slots = new ArrayList<>(modifiedCache.entrySet());
         modifiedCache.clear();
         initialCache.clear();
-        return count;
+        for(Map.Entry<PlayerSlot, ItemStack> entry : slots) {
+            PlayerSlot slot = entry.getKey();
+            slot.get(player, truth ->{
+                if (Util.isAir(truth)) {
+                    // 禁止修改空气装备
+                    return;
+                }
+                ItemStack verify = initialCache.get(slot);
+                if (ignoreDamage){
+                    if (verify.getType() != truth.getType() || verify.getAmount() != truth.getAmount() || !Bukkit.getItemFactory().equals(verify.getItemMeta(), truth.getItemMeta())) {
+                        return;
+                    }
+                } else if(verify.equals(truth)){
+                    return;
+                }
+                if(Bukkit.isPrimaryThread()||slot.isAsyncSafe()) {
+                    slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()), result -> { });
+                }else{
+                    Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(),()->{
+                        slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()), result -> { });
+                    });
+                }
+            });
+        }
     }
 
     /**
@@ -228,7 +236,7 @@ public class PlayerSlotCache {
      */
     public void updateAll() {
         for (PlayerSlot slot : parent.getRegisteredSlots()) {
-            updateCachedItem(UpdateTrigger.CUSTOM, slot, slot.get(player));
+            slot.get(player, item-> updateCachedItem(UpdateTrigger.CUSTOM, slot, item));
         }
     }
 }

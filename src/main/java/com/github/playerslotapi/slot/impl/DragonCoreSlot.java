@@ -2,8 +2,11 @@ package com.github.playerslotapi.slot.impl;
 
 import com.github.playerslotapi.PlayerSlotAPI;
 import com.github.playerslotapi.slot.PlayerSlot;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.function.Consumer;
 
 public class DragonCoreSlot extends PlayerSlot {
 
@@ -15,12 +18,23 @@ public class DragonCoreSlot extends PlayerSlot {
     }
 
     @Override
-    public ItemStack get(Player player) {
-        return PlayerSlotAPI.dragonCoreHook.getItemFromSlot(identifier, player);
+    public boolean isAsyncSafe() {
+        return true;
     }
 
     @Override
-    public void set(Player player, ItemStack item) {
-        PlayerSlotAPI.dragonCoreHook.setItemToSlot(identifier, player, item);
+    public void get(Player player, Consumer<ItemStack> callback) {
+        if(Bukkit.isPrimaryThread()) {
+            Bukkit.getScheduler().runTaskAsynchronously(PlayerSlotAPI.getPlugin(),()->{
+                PlayerSlotAPI.dragonCoreHook.getItemFromSlot(player, identifier, callback);
+            });
+        }else{
+            PlayerSlotAPI.dragonCoreHook.getItemFromSlot(player, identifier, callback);
+        }
+    }
+
+    @Override
+    public void set(Player player, ItemStack item, Consumer<Boolean> callback) {
+        PlayerSlotAPI.dragonCoreHook.setItemToSlot(player, identifier, item, callback);
     }
 }

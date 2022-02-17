@@ -3,7 +3,7 @@ package com.github.playerslotapi.core;
 import com.github.playerslotapi.PlayerSlotAPI;
 import com.github.playerslotapi.event.AsyncSlotUpdateEvent;
 import com.github.playerslotapi.event.SlotUpdateEvent;
-import com.github.playerslotapi.listener.VanillaListener;
+import com.github.playerslotapi.hook.VanillaHook;
 import com.github.playerslotapi.slot.PlayerSlot;
 import com.github.playerslotapi.slot.impl.VanillaEquipSlot;
 import com.github.playerslotapi.util.Events;
@@ -92,7 +92,7 @@ public class PlayerSlotManager {
         registerSlot(VanillaEquipSlot.CHESTPLATE);
         registerSlot(VanillaEquipSlot.LEGGINGS);
         registerSlot(VanillaEquipSlot.BOOTS);
-        VanillaListener.registerEvents();
+        VanillaHook.registerEvents();
     }
 
     /**
@@ -150,7 +150,7 @@ public class PlayerSlotManager {
     private void onItemEquip(SlotUpdateEvent event) {
         Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(), () -> {
             PlayerSlotCache cache = getPlayerCache(event.getPlayer());
-            cache.updateCachedItem(event.getTrigger(), event.getSlot(), event.getSlot().get(event.getPlayer()));
+            event.getSlot().get(event.getPlayer(),item -> cache.updateCachedItem(event.getTrigger(), event.getSlot(), item));
         });
     }
 

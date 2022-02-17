@@ -1,6 +1,7 @@
 package com.github.playerslotapi.hook;
 
 
+import com.github.playerslotapi.util.Util;
 import eos.moe.dragoncore.DragonCore;
 import eos.moe.dragoncore.database.IDataBase;
 import eos.moe.dragoncore.network.PacketSender;
@@ -8,6 +9,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.function.Consumer;
 
 public class DragonCoreHook {
 
@@ -17,27 +20,25 @@ public class DragonCoreHook {
         this.instance = DragonCore.getInstance();
     }
 
-    public ItemStack getItemFromSlot(String identifier, Player player) {
-        final ItemStack[] result = {null};
+    public void getItemFromSlot(Player player, String identifier, Consumer<ItemStack> callback) {
         instance.getDB().getData(player, identifier, new IDataBase.Callback<ItemStack>() {
             @Override
             public void onResult(ItemStack itemStack) {
-                if (itemStack != null && itemStack.getType() != Material.AIR) {
+                if (!Util.isAir(itemStack)) {
                     //有物品则返回该物品
-                    result[0] = itemStack;
+                    callback.accept(itemStack);
+                }else{
+                    callback.accept(new ItemStack(Material.AIR));
                 }
             }
-
             @Override
             public void onFail() {
-                Bukkit.getConsoleSender().sendMessage("§9[§ePlayerSlotApi§9]§f 获取玩家:" + player + "的" + identifier + "槽位物品时出错");
+                callback.accept(null);
             }
         });
-
-        return result[0];
     }
 
-    public void setItemToSlot(String identifier, Player player, ItemStack toBePuttedItem) {
+    public void setItemToSlot(Player player, String identifier,  ItemStack toBePuttedItem, Consumer<Boolean> callback) {
         instance.getDB().setData(player, identifier, toBePuttedItem, new IDataBase.Callback<ItemStack>() {
             @Override
             public void onResult(ItemStack itemStack) {
@@ -47,11 +48,13 @@ public class DragonCoreHook {
                     //为null代表删除该槽位物品
                     PacketSender.putClientSlotItem(player, identifier, new ItemStack(Material.AIR));
                 }
+                callback.accept(true);
             }
 
             @Override
             public void onFail() {
                 Bukkit.getConsoleSender().sendMessage("§9[§ePlayerSlotApi§9]§f 为玩家:" + player + "的" + identifier + "槽位设置物品时出错");
+                callback.accept(false);
             }
         });
     }
