@@ -4,6 +4,7 @@ import com.github.playerslotapi.PlayerSlotAPI;
 import com.github.playerslotapi.event.AsyncSlotUpdateEvent;
 import com.github.playerslotapi.event.UpdateTrigger;
 import com.github.playerslotapi.slot.PlayerSlot;
+import com.github.playerslotapi.util.Util;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -22,13 +23,19 @@ public class PlayerSlotCache {
 
     private static final ItemStack AIR = new ItemStack(Material.AIR);
     private final PlayerSlotManager parent;
+
     /**
-     * 需要缓存的槽位
+     * 缓存的槽位物品和数据. 默认是
      */
+    private final Map<PlayerSlot, ItemStack> itemCache = new ConcurrentHashMap<>(6);
+    private final Map<PlayerSlot, Map<Class<?>, Object>> dataCache = new ConcurrentHashMap<>(6);
 
+    /**
+     * 异步修改专用槽. 一般不会有太多数据所以初始大小为1
+     */
+    private final Map<PlayerSlot, ItemStack> initialCache = new ConcurrentHashMap<>(1);
+    private final Map<PlayerSlot, ItemStack> modifiedCache = new ConcurrentHashMap<>(1);
 
-    private final Map<PlayerSlot, ItemStack> itemCache = new ConcurrentHashMap<>();
-    private final Map<PlayerSlot, Map<Class<?>, Object>> dataCache = new ConcurrentHashMap<>();
     private final Player player;
 
     public PlayerSlotCache(PlayerSlotManager parent, Player player) {
@@ -93,6 +100,67 @@ public class PlayerSlotCache {
     @NotNull
     public ItemStack getCachedItem(PlayerSlot slot) {
         return itemCache.getOrDefault(slot, AIR);
+    }
+
+    /**
+     * 获取异步修改槽位中的物品
+     * 如果是第一次获取, 顺便储存修改前的槽位状态
+     * @param slot 槽位
+     * @return 异步修改后的物品
+     */
+    @NotNull
+    public ItemStack getModifiedItem(PlayerSlot slot){
+        ItemStack modifiedItem = modifiedCache.get(slot);
+        if(modifiedItem == null){
+            modifiedItem = getCachedItem(slot);
+            initialCache.put(slot, modifiedItem);
+        }
+        return modifiedItem;
+    }
+
+    /**
+     * 对槽位进行异步修改，将结果缓存
+     * 你必须要在这个方法调用前调用getModifiedItem
+     *
+     * @param slot 槽位
+     * @param item 新的异步修改后的物品
+     */
+    public void setModifiedItem(PlayerSlot slot, ItemStack item){
+        modifiedCache.put(slot, item);
+    }
+
+    /**
+     * 将异步修改应用到玩家槽位中
+     * 如果玩家槽位在异步计算期间已经改变
+     * 那么修改不起作用 防止刷物品
+     * 此方法必须同步调用
+     *
+     * @param ignoreDamage 是否忽略耐久变化
+     * @return 修改的装备的数量。为0的话则没有修改任何装备
+     */
+    public int applyModification(boolean ignoreDamage){
+        int count = 0;
+        for(Map.Entry<PlayerSlot, ItemStack> entry : modifiedCache.entrySet()) {
+            PlayerSlot slot = entry.getKey();
+            ItemStack truth = slot.get(player);
+            if (Util.isAir(truth)) {
+                // 禁止修改空气装备
+                continue;
+            }
+            ItemStack verify = initialCache.get(slot);
+            if (ignoreDamage){
+                if (verify.getType() != truth.getType() || verify.getAmount() != truth.getAmount() || !Bukkit.getItemFactory().equals(verify.getItemMeta(), truth.getItemMeta())) {
+                    continue;
+                }
+            } else if(verify.equals(truth)){
+                continue;
+            }
+            count++;
+            slot.set(player,modifiedCache.getOrDefault(slot,AIR.clone()));
+        }
+        modifiedCache.clear();
+        initialCache.clear();
+        return count;
     }
 
     /**
@@ -163,5 +231,4 @@ public class PlayerSlotCache {
             updateCachedItem(UpdateTrigger.CUSTOM, slot, slot.get(player));
         }
     }
-
 }

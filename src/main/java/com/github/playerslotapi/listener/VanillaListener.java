@@ -61,17 +61,17 @@ public class VanillaListener {
      * @param newItem 新物品
      * @return 返回槽位更新事件
      */
-    private static boolean callSlotUpdate(UpdateTrigger trigger, Player player, PlayerSlot slot, ItemStack oldItem, ItemStack newItem) {
+    private static boolean cancelSlotUpdate(UpdateTrigger trigger, Player player, PlayerSlot slot, ItemStack oldItem, ItemStack newItem) {
         if (oldItem == null) {
             oldItem = new ItemStack(Material.AIR);
         }
         if (oldItem.equals(newItem)) {
-            return true;
+            return false;
         }
         SlotUpdateEvent update = new SlotUpdateEvent(trigger, player, slot, oldItem, newItem);
         Bukkit.getPluginManager().callEvent(update);
         // 事件已经被取消, 或者不知道将要被更新成什么, 则只触发预更新
-        return !update.isCancelled();
+        return update.isCancelled();
     }
 
     /**
@@ -95,7 +95,7 @@ public class VanillaListener {
                 VanillaEquipSlot slot = VanillaEquipSlot.matchType(event.getItem());
                 if (slot != null && event.getTargetEntity() instanceof Player) {
                     Player player = (Player) event.getTargetEntity();
-                    if (!callSlotUpdate(UpdateTrigger.DISPENSER, player, slot, slot.get(player), event.getItem())) {
+                    if (cancelSlotUpdate(UpdateTrigger.DISPENSER, player, slot, slot.get(player), event.getItem())) {
                         event.setCancelled(true);
                     }
                 }
@@ -126,7 +126,8 @@ public class VanillaListener {
             return;
         }
         if (event.getAction() == InventoryAction.DROP_ALL_SLOT || event.getAction() == InventoryAction.DROP_ONE_SLOT) {
-            // 鼠标有物品的时候按Q丢不了东西
+            // 鼠标有物品的时候按Q丢不了东西, InventoryAction却又不是NOTHING
+            // 此乃Bukkit缺陷, 需自己解决
             if (!isAir(event.getCursor())) {
                 return;
             }
@@ -148,12 +149,12 @@ public class VanillaListener {
             int hotbarId = event.getHotbarButton();
             int targetId = event.getSlot();
             if (hotbarId == player.getInventory().getHeldItemSlot()) {
-                if (!callSlotUpdate(UpdateTrigger.HOTBAR_SWAP, player, VanillaEquipSlot.MAINHAND, player.getInventory().getItem(hotbarId), event.getCurrentItem())) {
+                if (cancelSlotUpdate(UpdateTrigger.HOTBAR_SWAP, player, VanillaEquipSlot.MAINHAND, player.getInventory().getItem(hotbarId), event.getCurrentItem())) {
                     event.setCancelled(true);
                     return;
                 }
             } else if (targetId == player.getInventory().getHeldItemSlot()) {
-                if (!callSlotUpdate(UpdateTrigger.HOTBAR_SWAP, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), player.getInventory().getItem(hotbarId))) {
+                if (cancelSlotUpdate(UpdateTrigger.HOTBAR_SWAP, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), player.getInventory().getItem(hotbarId))) {
                     event.setCancelled(true);
                     return;
                 }
@@ -167,12 +168,12 @@ public class VanillaListener {
                 VanillaEquipSlot quickEquipSlot = VanillaEquipSlot.matchType(event.getCurrentItem());
                 // 成功装备上的情况
                 if (quickEquipSlot != null && isAir(quickEquipSlot.get(player)) && (event.getSlotType() == SlotType.CONTAINER || event.getSlotType() == SlotType.QUICKBAR)) {
-                    if (!callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, quickEquipSlot, null, event.getCurrentItem())) {
+                    if (cancelSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, quickEquipSlot, null, event.getCurrentItem())) {
                         event.setCancelled(true);
                         return;
                     }
                     // 通知副手 准备短路处理
-                    if (event.getRawSlot() == 45 && !callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.OFFHAND, event.getCurrentItem(), new ItemStack(Material.AIR))) {
+                    if (event.getRawSlot() == 45 && cancelSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.OFFHAND, event.getCurrentItem(), new ItemStack(Material.AIR))) {
                         event.setCancelled(true);
                         return;
                     }
@@ -212,10 +213,10 @@ public class VanillaListener {
                                 newItem = mainHandItem.clone();
                                 newItem.setAmount(left);
                             }
-                            if (!callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), newItem)) {
+                            if (cancelSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), newItem)) {
                                 event.setCancelled(true);
                             }
-                        } else if (!callSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), new ItemStack(Material.AIR))) {
+                        } else if (cancelSlotUpdate(UpdateTrigger.SHIFT_CLICK, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(), new ItemStack(Material.AIR))) {
                             event.setCancelled(true);
                         }
                     } else {
@@ -228,7 +229,7 @@ public class VanillaListener {
                         } else {
                             newItem = event.getCursor();
                         }
-                        if (!callSlotUpdate(UpdateTrigger.PICK_DROP, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(),
+                        if (cancelSlotUpdate(UpdateTrigger.PICK_DROP, player, VanillaEquipSlot.MAINHAND, event.getCurrentItem(),
                                 newItem)) {
                             event.setCancelled(true);
                         }
@@ -308,7 +309,7 @@ public class VanillaListener {
                     if (!abort) {
                         ItemStack newItem = item.clone();
                         newItem.setAmount(Math.min((isAir(mainHandItem) ? 0 : mainHandItem.getAmount()) + amount, mainHandItem.getMaxStackSize()));
-                        if (!callSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, mainHandItem, newItem)) {
+                        if (cancelSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, mainHandItem, newItem)) {
                             event.setCancelled(true);
                             return;
                         }
@@ -339,7 +340,7 @@ public class VanillaListener {
             if (player.getInventory().firstEmpty() == -1) {
                 return;
             }
-            result = callSlotUpdate(UpdateTrigger.SHIFT_CLICK,
+            result = !cancelSlotUpdate(UpdateTrigger.SHIFT_CLICK,
                     player, slot, event.getCurrentItem(), new ItemStack(Material.AIR));
             // 点击其它位置的shift已经被检查过了 直接省略
         } else {
@@ -367,7 +368,7 @@ public class VanillaListener {
                     return;
                 }
             }
-            result = callSlotUpdate(event.getAction().equals(InventoryAction.HOTBAR_SWAP) || numberkey ? UpdateTrigger.HOTBAR_SWAP : UpdateTrigger.PICK_DROP,
+            result = !cancelSlotUpdate(event.getAction().equals(InventoryAction.HOTBAR_SWAP) || numberkey ? UpdateTrigger.HOTBAR_SWAP : UpdateTrigger.PICK_DROP,
                     player, slot, event.getCurrentItem(), newItem);
         }
         if (!result) {
@@ -404,8 +405,8 @@ public class VanillaListener {
             VanillaEquipSlot quickEquipSlot = VanillaEquipSlot.matchType(event.getItem());
             if (quickEquipSlot != null && quickEquipSlot != VanillaEquipSlot.OFFHAND && isAir(quickEquipSlot.get(player))) {
                 // 如果成功快速装备, 则顺便把主副手也给通知了, 然后短路处理
-                boolean equipResult = callSlotUpdate(UpdateTrigger.HOTBAR, player, quickEquipSlot, null, current);
-                boolean handResult = callSlotUpdate(UpdateTrigger.USE, player, handSlot, current, new ItemStack(Material.AIR));
+                boolean equipResult = !cancelSlotUpdate(UpdateTrigger.HOTBAR, player, quickEquipSlot, null, current);
+                boolean handResult = !cancelSlotUpdate(UpdateTrigger.USE, player, handSlot, current, new ItemStack(Material.AIR));
                 if (!equipResult || !handResult) {
                     event.setCancelled(true);
                 }
@@ -413,7 +414,7 @@ public class VanillaListener {
             }
             // 如果触发了使用
             // 检查触发事件的手
-            if (!callSlotUpdate(UpdateTrigger.USE, player, handSlot, current, null)) {
+            if (cancelSlotUpdate(UpdateTrigger.USE, player, handSlot, current, null)) {
                 event.setCancelled(true);
             }
         }
@@ -437,7 +438,7 @@ public class VanillaListener {
                 continue;
             }
             if (mainHandIndex == event.getView().convertSlot(entry.getKey())) {
-                if (!callSlotUpdate(UpdateTrigger.DRAG, player, VanillaEquipSlot.MAINHAND, event.getView().getItem(entry.getKey()), entry.getValue())) {
+                if (cancelSlotUpdate(UpdateTrigger.DRAG, player, VanillaEquipSlot.MAINHAND, event.getView().getItem(entry.getKey()), entry.getValue())) {
                     event.setCancelled(true);
                     return;
                 }
@@ -447,7 +448,7 @@ public class VanillaListener {
         for (int i : slots) {
             if (items.containsKey(i)) {
                 VanillaEquipSlot slot = VanillaEquipSlot.getById(i);
-                if (!callSlotUpdate(UpdateTrigger.DRAG, player, slot, slot.get(player), items.get(i))) {
+                if (cancelSlotUpdate(UpdateTrigger.DRAG, player, slot, slot.get(player), items.get(i))) {
                     event.setCancelled(true);
                     return;
                 }
@@ -461,6 +462,7 @@ public class VanillaListener {
      *
      * @param event 装备耐久变化事件
      */
+    @SuppressWarnings("deprecation")
     private static void onPlayerItemDamage(PlayerItemDamageEvent event) {
         if (event.getDamage() == 0) {
             return;
@@ -472,7 +474,7 @@ public class VanillaListener {
         if (slot != null) {
             ItemStack newItem = item.clone();
             newItem.setDurability((short) (item.getDurability() + event.getDamage()));
-            if (!callSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), slot, slot.get(player), newItem)) {
+            if (cancelSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), slot, slot.get(player), newItem)) {
                 event.setCancelled(true);
             }
             return;
@@ -483,7 +485,7 @@ public class VanillaListener {
         if (item.equals(main)) {
             ItemStack newItem = item.clone();
             newItem.setDurability((short) (item.getDurability() + event.getDamage()));
-            if (!callSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), VanillaEquipSlot.MAINHAND, main, newItem)) {
+            if (cancelSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), VanillaEquipSlot.MAINHAND, main, newItem)) {
                 event.setCancelled(true);
             }
             return;
@@ -492,7 +494,7 @@ public class VanillaListener {
         if (item.equals(off)) {
             ItemStack newItem = item.clone();
             newItem.setDurability((short) (item.getDurability() + event.getDamage()));
-            if (!callSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), VanillaEquipSlot.OFFHAND, off, newItem)) {
+            if (cancelSlotUpdate(UpdateTrigger.DAMAGED, event.getPlayer(), VanillaEquipSlot.OFFHAND, off, newItem)) {
                 event.setCancelled(true);
             }
         }
@@ -510,7 +512,7 @@ public class VanillaListener {
         VanillaEquipSlot slot = VanillaEquipSlot.matchType(item);
         // 检查是否是已知槽位
         if (slot != null) {
-            if (!callSlotUpdate(UpdateTrigger.BROKE, player, slot, item, newItem)) {
+            if (cancelSlotUpdate(UpdateTrigger.BROKE, player, slot, item, newItem)) {
                 slot.set(player, item);
             }
             return;
@@ -519,7 +521,7 @@ public class VanillaListener {
         // 先检查主手 一样就不检查副手了
         ItemStack main = player.getInventory().getItemInMainHand();
         if (item.equals(main)) {
-            if (!callSlotUpdate(UpdateTrigger.BROKE,
+            if (cancelSlotUpdate(UpdateTrigger.BROKE,
                     player, VanillaEquipSlot.MAINHAND, item, newItem)) {
                 player.getInventory().setItemInMainHand(item);
             }
@@ -527,7 +529,7 @@ public class VanillaListener {
         }
         ItemStack off = player.getInventory().getItemInOffHand();
         if (item.equals(off)) {
-            if (!callSlotUpdate(UpdateTrigger.BROKE,
+            if (cancelSlotUpdate(UpdateTrigger.BROKE,
                     player, VanillaEquipSlot.OFFHAND, item, newItem)) {
                 player.getInventory().setItemInOffHand(item);
             }
@@ -550,8 +552,8 @@ public class VanillaListener {
         if (offHandItem == null) {
             offHandItem = new ItemStack(Material.AIR);
         }
-        if (!callSlotUpdate(UpdateTrigger.SWAP, player, VanillaEquipSlot.MAINHAND, offHandItem, mainHandItem)
-                || !callSlotUpdate(UpdateTrigger.SWAP, player, VanillaEquipSlot.OFFHAND, mainHandItem, offHandItem)) {
+        if (cancelSlotUpdate(UpdateTrigger.SWAP, player, VanillaEquipSlot.MAINHAND, offHandItem, mainHandItem)
+                || cancelSlotUpdate(UpdateTrigger.SWAP, player, VanillaEquipSlot.OFFHAND, mainHandItem, offHandItem)) {
             event.setCancelled(true);
         }
     }
@@ -569,7 +571,7 @@ public class VanillaListener {
         if (newItem == null) {
             newItem = new ItemStack(Material.AIR);
         }
-        if (!callSlotUpdate(UpdateTrigger.HELD, player, VanillaEquipSlot.MAINHAND, oldItem, newItem)) {
+        if (cancelSlotUpdate(UpdateTrigger.HELD, player, VanillaEquipSlot.MAINHAND, oldItem, newItem)) {
             event.setCancelled(true);
         }
     }
@@ -589,9 +591,10 @@ public class VanillaListener {
     /**
      * 检查玩家丢弃物品事件
      *
-     * @param event
+     * @param event 玩家丢弃物品
      */
     private static void onPlayerDropItem(PlayerDropItemEvent event) {
+        // InventoryClick 和 InventoryClose 引发的Drop事件, 忽略之, 不处理
         if (disableDropDetect) {
             disableDropDetect = false;
             return;
@@ -608,7 +611,7 @@ public class VanillaListener {
             oldItem = newItem.clone();
             oldItem.setAmount(newItem.getAmount() + droppedItem.getAmount());
         }
-        if (!callSlotUpdate(UpdateTrigger.DROP, player, VanillaEquipSlot.MAINHAND, oldItem, newItem)) {
+        if (cancelSlotUpdate(UpdateTrigger.DROP, player, VanillaEquipSlot.MAINHAND, oldItem, newItem)) {
             event.setCancelled(true);
         }
     }
@@ -631,7 +634,7 @@ public class VanillaListener {
             if (mainHand.isSimilar(item) && mainHand.getAmount() < mainHand.getMaxStackSize()) {
                 ItemStack newItem = item.clone();
                 newItem.setAmount(Math.min(mainHand.getAmount() + newItem.getAmount(), newItem.getMaxStackSize()));
-                if (!callSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, mainHand, newItem)) {
+                if (cancelSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, mainHand, newItem)) {
                     event.setCancelled(true);
                 }
             }
@@ -659,7 +662,7 @@ public class VanillaListener {
         // 此时主手更新了
         ItemStack newItem = item.clone();
         newItem.setAmount(amount);
-        if (!callSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, null, newItem)) {
+        if (cancelSlotUpdate(UpdateTrigger.PICKUP, player, VanillaEquipSlot.MAINHAND, null, newItem)) {
             event.setCancelled(true);
         }
     }
@@ -674,12 +677,12 @@ public class VanillaListener {
             return;
         }
         if (event.getMessage().toLowerCase().startsWith("/hat")) {
-            if(mainhand.getType().isBlock() && !callSlotUpdate(UpdateTrigger.COMMAND_HAT, player, VanillaEquipSlot.HELMET, player.getInventory().getHelmet(), mainhand)) {
+            if(mainhand.getType().isBlock() && cancelSlotUpdate(UpdateTrigger.COMMAND_HAT, player, VanillaEquipSlot.HELMET, player.getInventory().getHelmet(), mainhand)) {
                 event.setCancelled(true);
             }
             return;
         }
-        if(!callSlotUpdate(UpdateTrigger.COMMAND, player,VanillaEquipSlot.MAINHAND,mainhand,null)){
+        if(cancelSlotUpdate(UpdateTrigger.COMMAND, player, VanillaEquipSlot.MAINHAND, mainhand, null)){
             event.setCancelled(true);
         }
     }
