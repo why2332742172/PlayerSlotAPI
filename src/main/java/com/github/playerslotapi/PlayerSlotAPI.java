@@ -55,7 +55,8 @@ public class PlayerSlotAPI {
             //萌芽
             germPluginHook = new GermPluginHook();
             Bukkit.getConsoleSender().sendMessage("§9[§ePlayerSlotApi§9]§f 已加载GermPlugin作为前置!");
-        } else if (Bukkit.getPluginManager().getPlugin("DragonCore") != null) {
+        }
+        if (Bukkit.getPluginManager().getPlugin("DragonCore") != null) {
             //龙核
             dragonCoreHook = new DragonCoreHook();
             Bukkit.getConsoleSender().sendMessage("§9[§ePlayerSlotApi§9]§f 已加载DragonCore作为前置!");
