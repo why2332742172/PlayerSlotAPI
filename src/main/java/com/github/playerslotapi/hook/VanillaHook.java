@@ -70,7 +70,6 @@ public class VanillaHook {
         }
         SlotUpdateEvent update = new SlotUpdateEvent(trigger, player, slot, oldItem, newItem);
         Bukkit.getPluginManager().callEvent(update);
-        // 事件已经被取消, 或者不知道将要被更新成什么, 则只触发预更新
         return update.isCancelled();
     }
 
