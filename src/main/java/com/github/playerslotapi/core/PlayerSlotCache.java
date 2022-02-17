@@ -162,12 +162,10 @@ public class PlayerSlotCache {
                     return;
                 }
                 if (Bukkit.isPrimaryThread() || slot.isAsyncSafe()) {
-                    slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()), result -> {
-                    });
+                    slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()));
                 } else {
                     Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(), () -> {
-                        slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()), result -> {
-                        });
+                        slot.set(player, modifiedCache.getOrDefault(slot, AIR.clone()));
                     });
                 }
             });
