@@ -2,6 +2,7 @@ package com.github.playerslotapi.hook;
 
 import com.germ.germplugin.GermPlugin;
 import com.germ.germplugin.api.GermSlotAPI;
+import com.github.playerslotapi.util.Events;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -23,4 +24,5 @@ public class GermPluginHook {
     public void setItemToSlot(Player player, String identifier, ItemStack toBePuttedItem) {
         GermSlotAPI.saveItemStackToIdentity(player, identifier, toBePuttedItem);
     }
+
 }

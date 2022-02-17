@@ -71,5 +71,13 @@ public enum UpdateTrigger {
      * Check for special purpose
      */
     CUSTOM,
+    /**
+     * DragonCore slot
+     */
+    DRAGON_CORE,
+    /**
+     * GermPlugin slot
+     */
+    GERM_PLUGIN
     ;
 }

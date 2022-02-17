@@ -3,6 +3,7 @@ package com.github.playerslotapi.hook;
 
 import com.github.playerslotapi.util.Util;
 import eos.moe.dragoncore.DragonCore;
+import eos.moe.dragoncore.api.event.PlayerSlotUpdateEvent;
 import eos.moe.dragoncore.database.IDataBase;
 import eos.moe.dragoncore.network.PacketSender;
 import org.bukkit.Bukkit;
@@ -58,6 +59,7 @@ public class DragonCoreHook {
             }
         });
     }
+
 
 
 }

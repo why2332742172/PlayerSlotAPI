@@ -36,6 +36,12 @@ public class SlotUpdateEvent extends PlayerEvent implements Cancellable {
      */
     private boolean isCancelled;
 
+    /**
+     * 是否立即更新. 对于原版槽位, 延时更新能使得更新更准确
+     * 但对于自定义槽位而言就没有必要了
+     */
+    private boolean immediate = false;
+
     public SlotUpdateEvent(UpdateTrigger trigger, Player player, PlayerSlot slot, ItemStack oldItem, ItemStack newItem) {
         super(player);
         this.trigger = trigger;
@@ -63,6 +69,14 @@ public class SlotUpdateEvent extends PlayerEvent implements Cancellable {
 
     public PlayerSlot getSlot() {
         return slot;
+    }
+
+    public boolean isUpdateImmediately(){
+        return immediate;
+    }
+
+    public void setUpdateImmediately(){
+        immediate = true;
     }
 
     @Override

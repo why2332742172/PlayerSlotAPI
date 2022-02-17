@@ -1,12 +1,18 @@
 package com.github.playerslotapi.core;
 
+import com.germ.germplugin.api.event.gui.GermGuiSlotPreClickEvent;
+import com.germ.germplugin.api.event.gui.GermGuiSlotSavedEvent;
 import com.github.playerslotapi.PlayerSlotAPI;
 import com.github.playerslotapi.event.AsyncSlotUpdateEvent;
 import com.github.playerslotapi.event.SlotUpdateEvent;
+import com.github.playerslotapi.event.UpdateTrigger;
 import com.github.playerslotapi.hook.VanillaHook;
 import com.github.playerslotapi.slot.PlayerSlot;
+import com.github.playerslotapi.slot.impl.DragonCoreSlot;
+import com.github.playerslotapi.slot.impl.GermPluginSlot;
 import com.github.playerslotapi.slot.impl.VanillaEquipSlot;
 import com.github.playerslotapi.util.Events;
+import eos.moe.dragoncore.api.event.PlayerSlotUpdateEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.*;
@@ -25,6 +31,9 @@ public class PlayerSlotManager {
     private final Map<UUID, PlayerSlotCache> PLAYER_MAP = new ConcurrentHashMap<>();
     private final Map<PlayerSlot, Queue<Consumer<AsyncSlotUpdateEvent>>> SLOT_UPDATE_HANDLERS = new ConcurrentHashMap<>();
 
+    // 龙核萌芽支持
+    private boolean dragonCore = false;
+    private boolean germPlugin = false;
 
     /**
      * 获取所有已经注册的槽位
@@ -76,9 +85,50 @@ public class PlayerSlotManager {
      * @param slot 要注册的槽位类型
      */
     public void registerSlot(PlayerSlot slot) {
+        if(REGISTERED_SLOTS.contains(slot)){
+            return;
+        }
         REGISTERED_SLOTS.add(slot);
         for (PlayerSlotCache cache : PLAYER_MAP.values()) {
             cache.initSlot(slot);
+        }
+        if(slot instanceof DragonCoreSlot){
+            if(PlayerSlotAPI.dragonCoreHook == null || dragonCore){
+                return;
+            }
+            Events.subscribe(PlayerSlotUpdateEvent.class, event ->{
+                ItemStack newItem = event.getItemStack();
+                SlotUpdateEvent update = new SlotUpdateEvent(UpdateTrigger.DRAGON_CORE, event.getPlayer(), slot, null, newItem);
+                update.setUpdateImmediately();
+                Bukkit.getPluginManager().callEvent(update);
+            });
+            dragonCore = true;
+        }else if(slot instanceof GermPluginSlot) {
+            if (PlayerSlotAPI.germPluginHook == null || germPlugin) {
+                return;
+            }
+            try {
+                Events.subscribe(GermGuiSlotSavedEvent.class, event -> {
+                    SlotUpdateEvent update = new SlotUpdateEvent(UpdateTrigger.DRAGON_CORE, event.getPlayer(), slot, event.getOldItemStack(), event.getNewItemStack());
+                    update.setUpdateImmediately();
+                    Bukkit.getPluginManager().callEvent(update);
+                });
+            }catch (Throwable e){
+                Events.subscribe(GermGuiSlotPreClickEvent.class,event->{
+                    // 旧版萌芽获取不到新旧物品, 因此需要延时检测
+                    ItemStack oldItem = event.getSlot();
+                    ItemStack newItem = event.getCursor();
+                    if (oldItem.equals(newItem)) {
+                        return;
+                    }
+                    SlotUpdateEvent update = new SlotUpdateEvent(UpdateTrigger.GERM_PLUGIN, event.getPlayer(), slot, oldItem, newItem);
+                    Bukkit.getPluginManager().callEvent(update);
+                    if(update.isCancelled()){
+                        event.setCancelled(true);
+                    }
+                });
+            }
+            germPlugin = true;
         }
     }
 
@@ -112,6 +162,7 @@ public class PlayerSlotManager {
         }
     }
 
+
     /**
      * 初始化时注册事件
      */
@@ -125,7 +176,7 @@ public class PlayerSlotManager {
         Events.subscribe(PlayerKickEvent.class, event -> {
             PLAYER_MAP.remove(event.getPlayer().getUniqueId());
         });
-        Events.subscribe(SlotUpdateEvent.class, this::onItemEquip);
+        Events.subscribe(SlotUpdateEvent.class, this::onSlotUpdate);
         Events.subscribe(PlayerTeleportEvent.class, this::onWorldChange);
         Events.subscribe(PlayerRespawnEvent.class, this::onPlayerRespawn);
     }
@@ -146,12 +197,20 @@ public class PlayerSlotManager {
         return result;
     }
 
-    // 延迟1 tick 检查, 先发动技能再更新装备
-    private void onItemEquip(SlotUpdateEvent event) {
-        Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(), () -> {
-            PlayerSlotCache cache = getPlayerCache(event.getPlayer());
-            event.getSlot().get(event.getPlayer(),item -> cache.updateCachedItem(event.getTrigger(), event.getSlot(), item));
-        });
+
+    private void onSlotUpdate(SlotUpdateEvent event) {
+        PlayerSlotCache cache = getPlayerCache(event.getPlayer());
+        if(event.isUpdateImmediately()){
+            // 如果是forceUpdate, 立即更新无视准确性
+            cache.updateCachedItem(event.getTrigger(),event.getSlot(),event.getNewItem());
+        }else {
+            // 否则延迟1 tick 检查, 准确更新装备缓存
+            Bukkit.getScheduler().runTask(PlayerSlotAPI.getPlugin(), () -> {
+
+                event.getSlot().get(event.getPlayer(),
+                        item -> cache.updateCachedItem(event.getTrigger(), event.getSlot(), item));
+            });
+        }
     }
 
     private void onPlayerRespawn(PlayerRespawnEvent event) {
