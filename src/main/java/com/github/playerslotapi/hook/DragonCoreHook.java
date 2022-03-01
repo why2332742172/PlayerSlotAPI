@@ -1,8 +1,14 @@
 package com.github.playerslotapi.hook;
 
 
+import com.github.playerslotapi.PlayerSlotAPI;
+import com.github.playerslotapi.event.SlotUpdateEvent;
+import com.github.playerslotapi.event.UpdateTrigger;
+import com.github.playerslotapi.slot.PlayerSlot;
+import com.github.playerslotapi.util.Events;
 import com.github.playerslotapi.util.Util;
 import eos.moe.dragoncore.DragonCore;
+import eos.moe.dragoncore.api.event.PlayerSlotUpdateEvent;
 import eos.moe.dragoncore.database.IDataBase;
 import eos.moe.dragoncore.network.PacketSender;
 import org.bukkit.Bukkit;
@@ -18,6 +24,22 @@ public class DragonCoreHook {
 
     public DragonCoreHook() {
         this.instance = DragonCore.getInstance();
+    }
+
+    public static void register() {
+        Events.subscribe(PlayerSlotUpdateEvent.class, event -> {
+            ItemStack newItem = event.getItemStack();
+            String identifier = event.getIdentifier();
+            //龙核特有傻逼 进服时identifier是null
+            if (identifier != null) {
+                if (PlayerSlotAPI.getAPI().getSlotMap().containsKey(identifier)) {
+                    PlayerSlot slot = PlayerSlotAPI.getAPI().getSlotMap().get(identifier);
+                    SlotUpdateEvent update = new SlotUpdateEvent(UpdateTrigger.DRAGON_CORE, event.getPlayer(), slot, null, newItem);
+                    update.setUpdateImmediately();
+                    Bukkit.getPluginManager().callEvent(update);
+                }
+            }
+        });
     }
 
     public void getItemFromSlot(Player player, String identifier, Consumer<ItemStack> callback) {
@@ -54,7 +76,7 @@ public class DragonCoreHook {
 
             @Override
             public void onFail() {
-                Bukkit.getConsoleSender().sendMessage("§9[§ePlayerSlotApi§9]§f 为玩家:" + player + "的" + identifier + "槽位设置物品时出错");
+                Bukkit.getConsoleSender().sendMessage("§9[§ePlayerSlotAPI§9]§f 为玩家:" + player + "的" + identifier + "槽位设置物品时出错");
                 callback.accept(false);
             }
         });

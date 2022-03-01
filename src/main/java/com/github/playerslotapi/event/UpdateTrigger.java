@@ -2,6 +2,16 @@ package com.github.playerslotapi.event;
 
 public enum UpdateTrigger {
     /**
+     * Update by Initialize
+     */
+    INIT,
+
+    /**
+     * Update by PlayerSlotAPI set
+     */
+    SET,
+
+    /**
      * When admin use command to edit equip
      */
     COMMAND,
@@ -78,5 +88,5 @@ public enum UpdateTrigger {
     /**
      * GermPlugin slot
      */
-    GERM_PLUGIN;
+    GERM_PLUGIN
 }

@@ -23,6 +23,7 @@ public abstract class PlayerSlot {
 
     public void set(Player player, ItemStack item) {
         set(player, item, result -> {
+
         });
     }
 

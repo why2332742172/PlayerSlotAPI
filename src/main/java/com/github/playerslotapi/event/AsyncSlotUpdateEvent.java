@@ -7,7 +7,8 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * 异步槽位更新事件. 1 tick后触发, 使得槽位更新捕捉准确
+ * 异步槽位更新事件. 缓存更新时触发
+ * 1 tick后触发, 使得槽位更新捕捉准确
  * 这个事件不能取消, 仅作为通知使用
  */
 public class AsyncSlotUpdateEvent extends Event {

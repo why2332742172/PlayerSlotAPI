@@ -1,6 +1,8 @@
 package com.github.playerslotapi.slot.impl;
 
 import com.github.playerslotapi.PlayerSlotAPI;
+import com.github.playerslotapi.event.SlotUpdateEvent;
+import com.github.playerslotapi.event.UpdateTrigger;
 import com.github.playerslotapi.slot.PlayerSlot;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -17,6 +19,10 @@ public class DragonCoreSlot extends PlayerSlot {
         this.identifier = identifier;
     }
 
+    public String getIdentifier() {
+        return identifier;
+    }
+
     @Override
     public boolean isAsyncSafe() {
         return true;
@@ -26,15 +32,23 @@ public class DragonCoreSlot extends PlayerSlot {
     public void get(Player player, Consumer<ItemStack> callback) {
         if (Bukkit.isPrimaryThread()) {
             Bukkit.getScheduler().runTaskAsynchronously(PlayerSlotAPI.getPlugin(), () -> {
-                PlayerSlotAPI.dragonCoreHook.getItemFromSlot(player, identifier, callback);
+                PlayerSlotAPI.getDragonCoreHook().getItemFromSlot(player, identifier, callback);
             });
         } else {
-            PlayerSlotAPI.dragonCoreHook.getItemFromSlot(player, identifier, callback);
+            PlayerSlotAPI.getDragonCoreHook().getItemFromSlot(player, identifier, callback);
         }
     }
 
     @Override
     public void set(Player player, ItemStack item, Consumer<Boolean> callback) {
-        PlayerSlotAPI.dragonCoreHook.setItemToSlot(player, identifier, item, callback);
+        PlayerSlotAPI.getDragonCoreHook().setItemToSlot(player, identifier, item,
+                result -> {
+                    if (result) {
+                        SlotUpdateEvent updateEvent = new SlotUpdateEvent(UpdateTrigger.SET, player, this, null, item);
+                        updateEvent.setUpdateImmediately();
+                        Bukkit.getPluginManager().callEvent(updateEvent);
+                    }
+                    callback.accept(result);
+                });
     }
 }

@@ -512,7 +512,7 @@ public class VanillaHook {
         // 检查是否是已知槽位
         if (slot != null) {
             if (cancelSlotUpdate(UpdateTrigger.BROKE, player, slot, item, newItem)) {
-                slot.set(player, item);
+                slot.setSilently(player, item);
             }
             return;
         }

@@ -1,6 +1,9 @@
 package com.github.playerslotapi.slot.impl;
 
+import com.github.playerslotapi.event.SlotUpdateEvent;
+import com.github.playerslotapi.event.UpdateTrigger;
 import com.github.playerslotapi.slot.PlayerSlot;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -87,9 +90,17 @@ public class VanillaEquipSlot extends PlayerSlot {
         callback.accept(getter.apply(player));
     }
 
+
+    public void setSilently(Player player, ItemStack item) {
+        setter.accept(player, item);
+    }
+
     @Override
     public void set(Player player, ItemStack item, Consumer<Boolean> callback) {
         setter.accept(player, item);
+        SlotUpdateEvent updateEvent = new SlotUpdateEvent(UpdateTrigger.SET, player, this, null, item);
+        updateEvent.setUpdateImmediately();
+        Bukkit.getPluginManager().callEvent(updateEvent);
         callback.accept(true);
     }
 

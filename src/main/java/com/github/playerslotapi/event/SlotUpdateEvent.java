@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * 装备更新事件
- * 当玩家槽位发生装备更新时触发
+ * 当实际槽位可能发生装备更新时触发
  */
 public class SlotUpdateEvent extends PlayerEvent implements Cancellable {
     private static final HandlerList HANDLERS = new HandlerList();
